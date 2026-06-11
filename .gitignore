@@ -1,0 +1,27 @@
+node_modules/
+dist/
+*.log
+
+# Android/Capacitor build output
+android/.gradle/
+android/build/
+android/app/build/
+android/**/build/
+android/local.properties
+
+# Local IDE files
+.idea/
+.vscode/
+*.iml
+
+# Local screenshots captured while testing
+sreyoun-*.png
+sunmi-*.png
+
+# Environment files
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

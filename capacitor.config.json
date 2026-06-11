@@ -1,0 +1,8 @@
+{
+  "appId": "com.sreyoun.meatball",
+  "appName": "SREYOUN MEATBALL",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
