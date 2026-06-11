@@ -179,6 +179,36 @@ input[type="number"] {
   font-weight: 700;
 }
 
+.owner-mode-bar {
+  position: sticky;
+  top: 56px;
+  z-index: 19;
+  width: min(1120px, calc(100% - 24px));
+  margin: 10px auto 0;
+  padding: 8px 10px;
+  border: 1.5px solid #dfc4ac;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #fff8f1;
+  box-shadow: 0 4px 14px rgba(48, 24, 10, 0.12);
+}
+
+.owner-mode-bar span {
+  color: #2f7d74;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.compact-btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 .tab.active {
   color: #c4531a;
   border-bottom-color: #c4531a;
@@ -271,6 +301,91 @@ input[type="number"] {
 
 .input.with-icon {
   padding-left: 40px;
+}
+
+.customer-picker {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed #dfc4ac;
+  border-radius: 8px;
+  background: #fff8f1;
+}
+
+.customer-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.customer-picker-head span {
+  color: #7a3e25;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-picker-head strong {
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #f4e5d5;
+  color: #8b3410;
+  font-size: 12px;
+}
+
+.customer-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-chip {
+  min-width: min(210px, 100%);
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #dfc4ac;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #2c1008;
+  text-align: left;
+}
+
+.customer-chip svg {
+  flex: 0 0 auto;
+  color: #2f7d74;
+}
+
+.customer-chip span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.customer-chip strong,
+.customer-chip em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-chip strong {
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.customer-chip em {
+  color: #7a3e25;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .order-note,
@@ -426,6 +541,64 @@ input[type="number"] {
 
 .secondary-btn:hover {
   background: #eddbc8;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  background: rgba(44, 16, 8, 0.52);
+  animation: fade-in 0.15s ease;
+}
+
+.pin-modal {
+  width: min(420px, 100%);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  background: #ffffff;
+  border: 1.5px solid #dfc4ac;
+  box-shadow: 0 18px 48px rgba(44, 16, 8, 0.3);
+}
+
+.pin-modal-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.pin-modal-head span {
+  color: #2f7d74;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pin-modal-head h2 {
+  margin: 3px 0 0;
+  color: #8b3410;
+  font-family: "Playfair Display", "Noto Serif Khmer", serif;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.pin-modal p {
+  margin: 0;
+  color: #7a3e25;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.pin-input {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .danger-btn {
@@ -1583,6 +1756,10 @@ button:disabled {
   .menu-form,
   .menu-edit-fields {
     grid-template-columns: 1fr;
+  }
+
+  .customer-chip {
+    width: 100%;
   }
 
   .order-products,

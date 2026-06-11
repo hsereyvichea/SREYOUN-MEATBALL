@@ -33,6 +33,7 @@ import {
 
 const STORAGE_KEY = "meatball-pos-v2";
 const WIFI_SYNC_PORT = 8787;
+const DEFAULT_OWNER_PIN = "1234";
 const NativePrinter = registerPlugin("SreyounPrint");
 
 const DEFAULT_PRODUCTS = [
@@ -79,6 +80,7 @@ const DEFAULT_SETTINGS = {
   bankAccount1: "000 000 000 SREYOUN MEATBALL",
   bankAccount2: "000 000 000 SREYOUN MEATBALL",
   deviceName: "This device",
+  ownerPin: DEFAULT_OWNER_PIN,
   autoPrintReceivedInvoices: false,
   syncMenuPricesOnWifi: false,
 };
@@ -183,6 +185,68 @@ function normalizeInvoice(invoice) {
 
 function normalizeInvoices(invoices) {
   return invoices.map(normalizeInvoice);
+}
+
+function normalizeCustomer(customer) {
+  const name = String(customer?.name || "").trim();
+  const phone = String(customer?.phone || "").trim();
+  const key = phone || name.toLowerCase();
+
+  return {
+    id: customer?.id || key || genId(),
+    name,
+    phone,
+    updatedAt: customer?.updatedAt || new Date().toISOString(),
+  };
+}
+
+function mergeCustomers(...customerLists) {
+  const customersByKey = new Map();
+
+  customerLists.flat().forEach((customer) => {
+    const normalized = normalizeCustomer(customer);
+    if (!normalized.name && !normalized.phone) return;
+
+    const key = normalized.phone || normalized.name.toLowerCase();
+    const current = customersByKey.get(key);
+
+    if (!current || normalized.updatedAt > current.updatedAt) {
+      customersByKey.set(key, {
+        ...current,
+        ...normalized,
+        name: normalized.name || current?.name || "",
+        phone: normalized.phone || current?.phone || "",
+      });
+    }
+  });
+
+  return Array.from(customersByKey.values()).sort(
+    (first, second) => new Date(second.updatedAt) - new Date(first.updatedAt)
+  );
+}
+
+function upsertCustomer(customers, customer) {
+  return mergeCustomers(
+    [
+      {
+        ...customer,
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    customers
+  );
+}
+
+function customersFromInvoices(invoices) {
+  return invoices.map((invoice) => ({
+    name: invoice.customer,
+    phone: invoice.phone,
+    updatedAt:
+      invoice.createdAtDevice ||
+      invoice.receivedAt ||
+      parseInvoiceDate(invoice.date)?.toISOString() ||
+      new Date(0).toISOString(),
+  }));
 }
 
 function formatDate(date) {
@@ -665,6 +729,12 @@ function normalizeSyncAddress(value) {
   return `http://${cleaned.includes(":") ? cleaned : `${cleaned}:${WIFI_SYNC_PORT}`}`;
 }
 
+function settingsForSync(settings) {
+  const { ownerPin, ...safeSettings } = settings || {};
+
+  return safeSettings;
+}
+
 function buildWifiSyncPayload(invoicesToSend, products, settings) {
   return {
     app: "sreyoun-meatball",
@@ -675,7 +745,7 @@ function buildWifiSyncPayload(invoicesToSend, products, settings) {
     },
     invoices: invoicesToSend.map((invoice) => normalizeInvoice(invoice)),
     products: normalizeProducts(products),
-    settings,
+    settings: settingsForSync(settings),
   };
 }
 
@@ -725,6 +795,7 @@ export default function App() {
   const [phone, setPhone] = useState("");
   const [orderNote, setOrderNote] = useState("");
   const [invoices, setInvoices] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [invCounter, setInvCounter] = useState(1001);
   const [selectedInvId, setSelectedInvId] = useState(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
@@ -759,6 +830,9 @@ export default function App() {
     url: "",
   });
   const [syncBusy, setSyncBusy] = useState(false);
+  const [ownerUnlocked, setOwnerUnlocked] = useState(false);
+  const [ownerPinInput, setOwnerPinInput] = useState("");
+  const [ownerUnlockRequest, setOwnerUnlockRequest] = useState(null);
 
   const toastTimerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -775,6 +849,9 @@ export default function App() {
           }
         if (Array.isArray(data.invoices)) {
           setInvoices(normalizeInvoices(data.invoices));
+        }
+        if (Array.isArray(data.customers)) {
+          setCustomers(mergeCustomers(data.customers));
         }
         if (Number.isFinite(data.invCounter)) setInvCounter(data.invCounter);
         if (data.settings) {
@@ -796,9 +873,16 @@ export default function App() {
 
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ products, invoices, invCounter, settings, syncPeerAddress })
+      JSON.stringify({
+        products,
+        invoices,
+        customers,
+        invCounter,
+        settings,
+        syncPeerAddress,
+      })
     );
-  }, [products, invoices, invCounter, settings, syncPeerAddress, loading]);
+  }, [products, invoices, customers, invCounter, settings, syncPeerAddress, loading]);
 
   useEffect(() => {
     if (selectedInvId && !invoices.some((inv) => inv.id === selectedInvId)) {
@@ -854,6 +938,23 @@ export default function App() {
   const filteredOrderProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchOrder.toLowerCase())
   );
+  const knownCustomers = useMemo(
+    () => mergeCustomers(customers, customersFromInvoices(invoices)),
+    [customers, invoices]
+  );
+  const filteredCustomers = useMemo(() => {
+    const query = `${customer} ${phone}`.trim().toLowerCase();
+    const matches = query
+      ? knownCustomers.filter((savedCustomer) =>
+          [savedCustomer.name, savedCustomer.phone]
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        )
+      : knownCustomers;
+
+    return matches.slice(0, 8);
+  }, [customer, knownCustomers, phone]);
   const filteredMenuProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchMenu.toLowerCase())
   );
@@ -976,6 +1077,70 @@ export default function App() {
     toastTimerRef.current = setTimeout(() => setToast(null), 2400);
   };
 
+  const requestOwnerUnlock = ({ title, message, onUnlock }) => {
+    if (ownerUnlocked) {
+      onUnlock?.();
+      return;
+    }
+
+    setOwnerPinInput("");
+    setOwnerUnlockRequest({
+      title: title || "Owner PIN",
+      message: message || "Enter owner PIN to continue.",
+      onUnlock,
+    });
+  };
+
+  const closeOwnerUnlock = () => {
+    setOwnerPinInput("");
+    setOwnerUnlockRequest(null);
+  };
+
+  const submitOwnerUnlock = () => {
+    const expectedPin = String(settings.ownerPin || DEFAULT_OWNER_PIN);
+
+    if (String(ownerPinInput).trim() !== expectedPin) {
+      showToast("Wrong owner PIN.", "err");
+      return;
+    }
+
+    const nextAction = ownerUnlockRequest?.onUnlock;
+    setOwnerUnlocked(true);
+    closeOwnerUnlock();
+    showToast("Owner mode unlocked.");
+    nextAction?.();
+  };
+
+  const lockOwnerMode = () => {
+    setOwnerUnlocked(false);
+    setEditId(null);
+    if (tab === "menu" || tab === "settings") {
+      setTab("order");
+    }
+    showToast("Owner mode locked.");
+  };
+
+  const selectTab = (nextTab) => {
+    const openTab = () => {
+      setTab(nextTab);
+      if (nextTab !== "history") setSelectedInvId(null);
+    };
+
+    if ((nextTab === "menu" || nextTab === "settings") && !ownerUnlocked) {
+      requestOwnerUnlock({
+        title: nextTab === "menu" ? "Unlock Menu" : "Unlock Settings",
+        message:
+          nextTab === "menu"
+            ? "Owner PIN is required to add, edit, or delete menu prices."
+            : "Owner PIN is required to change app settings.",
+        onUnlock: openTab,
+      });
+      return;
+    }
+
+    openTab();
+  };
+
   const receiveWifiSyncPayload = (rawPayload) => {
     try {
       const payload =
@@ -1011,6 +1176,9 @@ export default function App() {
         setProducts(normalizeProducts(incomingProducts));
       }
 
+      setCustomers((current) =>
+        mergeCustomers(current, customersFromInvoices(receivedInvoices))
+      );
       setInvoices((current) => {
         const mergedInvoices = mergeSyncedInvoices(
           current,
@@ -1245,6 +1413,23 @@ export default function App() {
     setAmountPaid(normalizedStatus === "paid" ? String(total) : "");
   };
 
+  const rememberCustomer = (customerName, customerPhone) => {
+    if (!customerName.trim() && !customerPhone.trim()) return;
+
+    setCustomers((current) =>
+      upsertCustomer(current, {
+        name: customerName,
+        phone: customerPhone,
+      })
+    );
+  };
+
+  const selectCustomer = (savedCustomer) => {
+    setCustomer(savedCustomer.name || "");
+    setPhone(savedCustomer.phone || "");
+    showToast("Customer selected.");
+  };
+
   const clearOrder = () => {
     setQty({});
     setCustomer("");
@@ -1280,6 +1465,8 @@ export default function App() {
       return;
     }
 
+    const finalCustomer = customer.trim();
+    const finalPhone = phone.trim();
     const parsedAmountPaid = Math.min(parseMoneyInput(amountPaid), total);
     const finalAmountPaid =
       paymentStatus === "paid" && parsedAmountPaid <= 0
@@ -1295,8 +1482,8 @@ export default function App() {
 
         updatedInvoice = {
           ...invoice,
-          customer: customer.trim(),
-          phone: phone.trim(),
+          customer: finalCustomer,
+          phone: finalPhone,
           note: orderNote.trim(),
           lines,
           priceType: orderPriceType,
@@ -1310,6 +1497,7 @@ export default function App() {
       });
 
       setInvoices(updatedInvoices);
+      rememberCustomer(finalCustomer, finalPhone);
       if (updatedInvoice) setSelectedInvId(updatedInvoice.id);
       clearOrder();
       setTab("history");
@@ -1322,8 +1510,8 @@ export default function App() {
       number: invCounter,
       date: formatDate(new Date()),
       time: formatTime(new Date()),
-      customer: customer.trim(),
-      phone: phone.trim(),
+      customer: finalCustomer,
+      phone: finalPhone,
       note: orderNote.trim(),
       lines,
       priceType: orderPriceType,
@@ -1337,6 +1525,7 @@ export default function App() {
     };
 
     setInvoices((current) => [invoice, ...current]);
+    rememberCustomer(finalCustomer, finalPhone);
     setInvCounter((current) => current + 1);
     setSelectedInvId(invoice.id);
     clearOrder();
@@ -1345,9 +1534,22 @@ export default function App() {
   };
 
   const deleteInvoice = (id) => {
-    setInvoices((current) => current.filter((invoice) => invoice.id !== id));
-    setSelectedInvId(null);
-    showToast("Invoice deleted.", "err");
+    const deleteInvoiceNow = () => {
+      setInvoices((current) => current.filter((invoice) => invoice.id !== id));
+      setSelectedInvId(null);
+      showToast("Invoice deleted.", "err");
+    };
+
+    if (!ownerUnlocked) {
+      requestOwnerUnlock({
+        title: "Delete Invoice",
+        message: "Owner PIN is required to delete invoices.",
+        onUnlock: deleteInvoiceNow,
+      });
+      return;
+    }
+
+    deleteInvoiceNow();
   };
 
   const updateInvoicePaymentStatus = (id, nextStatus) => {
@@ -1457,7 +1659,7 @@ export default function App() {
 
   const downloadBackup = async () => {
     const payload = JSON.stringify(
-      { products, invoices, invCounter, settings },
+      { products, invoices, customers, invCounter, settings },
       null,
       2
     );
@@ -1528,6 +1730,9 @@ export default function App() {
 
         setProducts(normalizeProducts(data.products));
         setInvoices(normalizeInvoices(data.invoices));
+        setCustomers(
+          mergeCustomers(data.customers || [], customersFromInvoices(data.invoices))
+        );
         setInvCounter(Number.isFinite(data.invCounter) ? data.invCounter : 1001);
         setSettings({ ...DEFAULT_SETTINGS, ...(data.settings || {}) });
         setSelectedInvId(null);
@@ -1914,10 +2119,7 @@ export default function App() {
             <button
               className={`tab ${tab === item.id ? "active" : ""}`}
               key={item.id}
-              onClick={() => {
-                setTab(item.id);
-                if (item.id !== "history") setSelectedInvId(null);
-              }}
+              onClick={() => selectTab(item.id)}
               type="button"
             >
               <Icon size={18} />
@@ -1928,6 +2130,15 @@ export default function App() {
         })}
       </nav>
 
+      {ownerUnlocked ? (
+        <div className="owner-mode-bar no-print">
+          <span>Owner mode unlocked</span>
+          <button className="secondary-btn compact-btn" onClick={lockOwnerMode} type="button">
+            Lock
+          </button>
+        </div>
+      ) : null}
+
       <main className="page">
         {tab === "order" && (
           <OrderTab
@@ -1936,6 +2147,7 @@ export default function App() {
             clearOrder={clearOrder}
             customer={customer}
             editingInvoiceId={editingInvoiceId}
+            filteredCustomers={filteredCustomers}
             filteredProducts={filteredOrderProducts}
             handleExactQty={handleExactQty}
             invoices={invoices}
@@ -1950,6 +2162,7 @@ export default function App() {
             qty={qty}
             saveInvoice={saveInvoice}
             searchOrder={searchOrder}
+            selectCustomer={selectCustomer}
             setCustomer={setCustomer}
             setOrderNote={setOrderNote}
             setOrderPaidStatus={setOrderPaidStatus}
@@ -2060,6 +2273,90 @@ export default function App() {
           />
         )}
       </main>
+
+      <OwnerUnlockModal
+        closeOwnerUnlock={closeOwnerUnlock}
+        ownerPinInput={ownerPinInput}
+        ownerUnlockRequest={ownerUnlockRequest}
+        setOwnerPinInput={setOwnerPinInput}
+        submitOwnerUnlock={submitOwnerUnlock}
+      />
+    </div>
+  );
+}
+
+function OwnerUnlockModal({
+  closeOwnerUnlock,
+  ownerPinInput,
+  ownerUnlockRequest,
+  setOwnerPinInput,
+  submitOwnerUnlock,
+}) {
+  if (!ownerUnlockRequest) return null;
+
+  return (
+    <div className="modal-backdrop no-print" role="presentation">
+      <div className="pin-modal" role="dialog" aria-modal="true">
+        <div className="pin-modal-head">
+          <div>
+            <span>Owner Access</span>
+            <h2>{ownerUnlockRequest.title}</h2>
+          </div>
+          <button className="icon-btn" onClick={closeOwnerUnlock} type="button">
+            <X size={18} />
+          </button>
+        </div>
+        <p>{ownerUnlockRequest.message}</p>
+        <input
+          autoFocus
+          className="input pin-input"
+          inputMode="numeric"
+          onChange={(event) => setOwnerPinInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submitOwnerUnlock();
+          }}
+          placeholder="Enter PIN"
+          type="password"
+          value={ownerPinInput}
+        />
+        <div className="button-row">
+          <button className="secondary-btn" onClick={closeOwnerUnlock} type="button">
+            Cancel
+          </button>
+          <button className="primary-btn" onClick={submitOwnerUnlock} type="button">
+            Unlock
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomerPicker({ customers, selectCustomer }) {
+  if (!customers.length) return null;
+
+  return (
+    <div className="customer-picker">
+      <div className="customer-picker-head">
+        <span>Recent customers</span>
+        <strong>{customers.length}</strong>
+      </div>
+      <div className="customer-chip-row">
+        {customers.map((savedCustomer) => (
+          <button
+            className="customer-chip"
+            key={savedCustomer.id}
+            onClick={() => selectCustomer(savedCustomer)}
+            type="button"
+          >
+            <User size={16} />
+            <span>
+              <strong>{savedCustomer.name || "No name"}</strong>
+              {savedCustomer.phone ? <em>{savedCustomer.phone}</em> : null}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2070,6 +2367,7 @@ function OrderTab({
   clearOrder,
   customer,
   editingInvoiceId,
+  filteredCustomers,
   filteredProducts,
   handleExactQty,
   invoices,
@@ -2083,6 +2381,7 @@ function OrderTab({
   qty,
   saveInvoice,
   searchOrder,
+  selectCustomer,
   setCustomer,
   setOrderNote,
   setOrderPaidStatus,
@@ -2148,6 +2447,10 @@ function OrderTab({
               />
             </label>
           </div>
+          <CustomerPicker
+            customers={filteredCustomers}
+            selectCustomer={selectCustomer}
+          />
           <textarea
             className="textarea order-note"
             onChange={(event) => setOrderNote(event.target.value)}
@@ -3154,6 +3457,14 @@ function SettingsTab({
             onChange={(event) => updateSetting("bankAccount2", event.target.value)}
             placeholder="ABA Bank account 2"
             value={settings.bankAccount2}
+          />
+          <input
+            className="input"
+            inputMode="numeric"
+            onChange={(event) => updateSetting("ownerPin", event.target.value)}
+            placeholder="Owner PIN"
+            type="password"
+            value={settings.ownerPin || ""}
           />
           <button
             className="primary-btn settings-save"
