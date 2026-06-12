@@ -34,6 +34,8 @@ import {
 const STORAGE_KEY = "meatball-pos-v2";
 const WIFI_SYNC_PORT = 8787;
 const DEFAULT_OWNER_PIN = "1234";
+const CUSTOMER_RECENT_LIMIT = 6;
+const CUSTOMER_SEARCH_LIMIT = 8;
 const NativePrinter = registerPlugin("SreyounPrint");
 
 const DEFAULT_PRODUCTS = [
@@ -190,7 +192,7 @@ function normalizeInvoices(invoices) {
 function normalizeCustomer(customer) {
   const name = String(customer?.name || "").trim();
   const phone = String(customer?.phone || "").trim();
-  const key = phone || name.toLowerCase();
+  const key = customerKey({ name, phone });
 
   return {
     id: customer?.id || key || genId(),
@@ -200,6 +202,13 @@ function normalizeCustomer(customer) {
   };
 }
 
+function customerKey(customer) {
+  const phone = String(customer?.phone || "").trim();
+  const name = String(customer?.name || "").trim().toLowerCase();
+
+  return phone || name;
+}
+
 function mergeCustomers(...customerLists) {
   const customersByKey = new Map();
 
@@ -207,7 +216,7 @@ function mergeCustomers(...customerLists) {
     const normalized = normalizeCustomer(customer);
     if (!normalized.name && !normalized.phone) return;
 
-    const key = normalized.phone || normalized.name.toLowerCase();
+    const key = customerKey(normalized);
     const current = customersByKey.get(key);
 
     if (!current || normalized.updatedAt > current.updatedAt) {
@@ -247,6 +256,30 @@ function customersFromInvoices(invoices) {
       parseInvoiceDate(invoice.date)?.toISOString() ||
       new Date(0).toISOString(),
   }));
+}
+
+function customerMatchesInvoice(customer, invoice) {
+  const customerPhone = String(customer?.phone || "").trim();
+  const customerName = String(customer?.name || "").trim().toLowerCase();
+  const invoicePhone = String(invoice?.phone || "").trim();
+  const invoiceName = String(invoice?.customer || "").trim().toLowerCase();
+
+  if (customerPhone && invoicePhone) return customerPhone === invoicePhone;
+  if (customerName && invoiceName) return customerName === invoiceName;
+
+  return false;
+}
+
+function summarizeCustomerInvoices(customer, invoices) {
+  const customerInvoices = invoices
+    .filter((invoice) => customerMatchesInvoice(customer, invoice))
+    .map(normalizeInvoice);
+  const summary = summarizeInvoices(customerInvoices);
+
+  return {
+    ...summary,
+    invoices: customerInvoices,
+  };
 }
 
 function formatDate(date) {
@@ -793,9 +826,11 @@ export default function App() {
   const [qty, setQty] = useState({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [orderNote, setOrderNote] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [hiddenCustomerKeys, setHiddenCustomerKeys] = useState([]);
   const [invCounter, setInvCounter] = useState(1001);
   const [selectedInvId, setSelectedInvId] = useState(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
@@ -853,6 +888,9 @@ export default function App() {
         if (Array.isArray(data.customers)) {
           setCustomers(mergeCustomers(data.customers));
         }
+        if (Array.isArray(data.hiddenCustomerKeys)) {
+          setHiddenCustomerKeys(data.hiddenCustomerKeys.filter(Boolean));
+        }
         if (Number.isFinite(data.invCounter)) setInvCounter(data.invCounter);
         if (data.settings) {
           setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
@@ -877,12 +915,22 @@ export default function App() {
         products,
         invoices,
         customers,
+        hiddenCustomerKeys,
         invCounter,
         settings,
         syncPeerAddress,
       })
     );
-  }, [products, invoices, customers, invCounter, settings, syncPeerAddress, loading]);
+  }, [
+    products,
+    invoices,
+    customers,
+    hiddenCustomerKeys,
+    invCounter,
+    settings,
+    syncPeerAddress,
+    loading,
+  ]);
 
   useEffect(() => {
     if (selectedInvId && !invoices.some((inv) => inv.id === selectedInvId)) {
@@ -939,22 +987,44 @@ export default function App() {
     product.name.toLowerCase().includes(searchOrder.toLowerCase())
   );
   const knownCustomers = useMemo(
-    () => mergeCustomers(customers, customersFromInvoices(invoices)),
-    [customers, invoices]
+    () => {
+      const hiddenKeys = new Set(hiddenCustomerKeys);
+
+      return mergeCustomers(customers, customersFromInvoices(invoices)).filter(
+        (savedCustomer) => !hiddenKeys.has(customerKey(savedCustomer))
+      );
+    },
+    [customers, hiddenCustomerKeys, invoices]
   );
-  const filteredCustomers = useMemo(() => {
-    const query = `${customer} ${phone}`.trim().toLowerCase();
-    const matches = query
+  const customerLookupText = `${customer} ${phone}`.trim().toLowerCase();
+  const isSearchingCustomers = customerLookupText.length > 0;
+  const customerPickerData = useMemo(() => {
+    const matches = isSearchingCustomers
       ? knownCustomers.filter((savedCustomer) =>
           [savedCustomer.name, savedCustomer.phone]
             .join(" ")
             .toLowerCase()
-            .includes(query)
+            .includes(customerLookupText)
         )
       : knownCustomers;
+    const limit = isSearchingCustomers
+      ? CUSTOMER_SEARCH_LIMIT
+      : CUSTOMER_RECENT_LIMIT;
 
-    return matches.slice(0, 8);
-  }, [customer, knownCustomers, phone]);
+    return {
+      customers: matches.slice(0, limit),
+      total: matches.length,
+    };
+  }, [customerLookupText, isSearchingCustomers, knownCustomers]);
+  const filteredCustomers = customerPickerData.customers;
+  const filteredCustomerCount = customerPickerData.total;
+  const selectedCustomerSummary = useMemo(
+    () =>
+      selectedCustomer
+        ? summarizeCustomerInvoices(selectedCustomer, invoices)
+        : null,
+    [invoices, selectedCustomer]
+  );
   const filteredMenuProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchMenu.toLowerCase())
   );
@@ -1177,7 +1247,9 @@ export default function App() {
       }
 
       setCustomers((current) =>
-        mergeCustomers(current, customersFromInvoices(receivedInvoices))
+        mergeCustomers(current, customersFromInvoices(receivedInvoices)).filter(
+          (savedCustomer) => !hiddenCustomerKeys.includes(customerKey(savedCustomer))
+        )
       );
       setInvoices((current) => {
         const mergedInvoices = mergeSyncedInvoices(
@@ -1413,9 +1485,24 @@ export default function App() {
     setAmountPaid(normalizedStatus === "paid" ? String(total) : "");
   };
 
+  const updateCustomerName = (value) => {
+    setCustomer(value);
+    setSelectedCustomer(null);
+  };
+
+  const updateCustomerPhone = (value) => {
+    setPhone(value);
+    setSelectedCustomer(null);
+  };
+
   const rememberCustomer = (customerName, customerPhone) => {
     if (!customerName.trim() && !customerPhone.trim()) return;
 
+    const nextKey = customerKey({ name: customerName, phone: customerPhone });
+
+    setHiddenCustomerKeys((current) =>
+      current.filter((hiddenKey) => hiddenKey !== nextKey)
+    );
     setCustomers((current) =>
       upsertCustomer(current, {
         name: customerName,
@@ -1425,15 +1512,48 @@ export default function App() {
   };
 
   const selectCustomer = (savedCustomer) => {
-    setCustomer(savedCustomer.name || "");
-    setPhone(savedCustomer.phone || "");
+    const normalized = normalizeCustomer(savedCustomer);
+
+    setSelectedCustomer(normalized);
+    setCustomer(normalized.name || "");
+    setPhone(normalized.phone || "");
     showToast("Customer selected.");
+  };
+
+  const clearSelectedCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomer("");
+    setPhone("");
+    showToast("Customer cleared.");
+  };
+
+  const deleteSelectedCustomer = () => {
+    if (!selectedCustomer) return;
+
+    const key = customerKey(selectedCustomer);
+
+    setHiddenCustomerKeys((current) =>
+      current.includes(key) ? current : [...current, key]
+    );
+    setCustomers((current) =>
+      current.filter((savedCustomer) => customerKey(savedCustomer) !== key)
+    );
+    setSelectedCustomer(null);
+    setCustomer("");
+    setPhone("");
+    showToast("Customer removed. Invoices kept.", "err");
+  };
+
+  const openCustomerInvoice = (invoiceId) => {
+    setSelectedInvId(invoiceId);
+    setTab("history");
   };
 
   const clearOrder = () => {
     setQty({});
     setCustomer("");
     setPhone("");
+    setSelectedCustomer(null);
     setOrderNote("");
     setPaymentStatus("unpaid");
     setAmountPaid("");
@@ -1659,7 +1779,14 @@ export default function App() {
 
   const downloadBackup = async () => {
     const payload = JSON.stringify(
-      { products, invoices, customers, invCounter, settings },
+      {
+        products,
+        invoices,
+        customers,
+        hiddenCustomerKeys,
+        invCounter,
+        settings,
+      },
       null,
       2
     );
@@ -1732,6 +1859,11 @@ export default function App() {
         setInvoices(normalizeInvoices(data.invoices));
         setCustomers(
           mergeCustomers(data.customers || [], customersFromInvoices(data.invoices))
+        );
+        setHiddenCustomerKeys(
+          Array.isArray(data.hiddenCustomerKeys)
+            ? data.hiddenCustomerKeys.filter(Boolean)
+            : []
         );
         setInvCounter(Number.isFinite(data.invCounter) ? data.invCounter : 1001);
         setSettings({ ...DEFAULT_SETTINGS, ...(data.settings || {}) });
@@ -2147,15 +2279,18 @@ export default function App() {
             clearOrder={clearOrder}
             customer={customer}
             editingInvoiceId={editingInvoiceId}
+            filteredCustomerCount={filteredCustomerCount}
             filteredCustomers={filteredCustomers}
             filteredProducts={filteredOrderProducts}
             handleExactQty={handleExactQty}
             invoices={invoices}
+            isSearchingCustomers={isSearchingCustomers}
             lines={lines}
             orderAmountPaid={orderAmountPaid}
             orderBalanceDue={orderBalanceDue}
             orderPriceType={orderPriceType}
             orderNote={orderNote}
+            openCustomerInvoice={openCustomerInvoice}
             paymentStatus={orderPaymentStatus}
             phone={phone}
             products={products}
@@ -2163,11 +2298,14 @@ export default function App() {
             saveInvoice={saveInvoice}
             searchOrder={searchOrder}
             selectCustomer={selectCustomer}
-            setCustomer={setCustomer}
+            selectedCustomerSummary={selectedCustomerSummary}
+            clearSelectedCustomer={clearSelectedCustomer}
+            deleteSelectedCustomer={deleteSelectedCustomer}
+            setCustomer={updateCustomerName}
             setOrderNote={setOrderNote}
             setOrderPaidStatus={setOrderPaidStatus}
             setOrderPriceType={setOrderPriceType}
-            setPhone={setPhone}
+            setPhone={updateCustomerPhone}
             setSearchOrder={setSearchOrder}
             total={total}
             updateAmountPaid={updateAmountPaid}
@@ -2332,14 +2470,28 @@ function OwnerUnlockModal({
   );
 }
 
-function CustomerPicker({ customers, selectCustomer }) {
+function CustomerPicker({
+  clearSelectedCustomer,
+  deleteSelectedCustomer,
+  customers,
+  isSearchingCustomers,
+  openCustomerInvoice,
+  selectCustomer,
+  selectedCustomerSummary,
+  totalCustomerCount,
+}) {
   if (!customers.length) return null;
+
+  const countLabel =
+    totalCustomerCount > customers.length
+      ? `${customers.length}/${totalCustomerCount}`
+      : String(customers.length);
 
   return (
     <div className="customer-picker">
       <div className="customer-picker-head">
-        <span>Recent customers</span>
-        <strong>{customers.length}</strong>
+        <span>{isSearchingCustomers ? "Matching customers" : "Recent customers"}</span>
+        <strong>{countLabel}</strong>
       </div>
       <div className="customer-chip-row">
         {customers.map((savedCustomer) => (
@@ -2357,6 +2509,95 @@ function CustomerPicker({ customers, selectCustomer }) {
           </button>
         ))}
       </div>
+      <CustomerHistoryPanel
+        clearSelectedCustomer={clearSelectedCustomer}
+        deleteSelectedCustomer={deleteSelectedCustomer}
+        openCustomerInvoice={openCustomerInvoice}
+        summary={selectedCustomerSummary}
+      />
+    </div>
+  );
+}
+
+function CustomerHistoryPanel({
+  clearSelectedCustomer,
+  deleteSelectedCustomer,
+  openCustomerInvoice,
+  summary,
+}) {
+  if (!summary) return null;
+
+  const recentInvoices = summary.invoices.slice(0, 8);
+
+  return (
+    <div className="customer-history">
+      <div className="customer-history-head">
+        <div>
+          <span>Customer history</span>
+          <strong>{summary.invoiceCount} invoices</strong>
+        </div>
+        <button
+          className="secondary-btn compact-btn"
+          onClick={clearSelectedCustomer}
+          type="button"
+        >
+          <X size={16} />
+          Clear
+        </button>
+        <button
+          className="danger-btn compact-btn"
+          onClick={deleteSelectedCustomer}
+          type="button"
+        >
+          <Trash2 size={16} />
+          Delete
+        </button>
+        <div className="customer-history-balance">
+          <span>Unpaid</span>
+          <strong>{money(summary.balance)}</strong>
+        </div>
+      </div>
+      <div className="customer-history-metrics">
+        <div>
+          <span>Total spent</span>
+          <strong>{money(summary.total)}</strong>
+        </div>
+        <div>
+          <span>Paid</span>
+          <strong>{money(summary.paid)}</strong>
+        </div>
+      </div>
+      {recentInvoices.length ? (
+        <div className="customer-invoice-list">
+          {recentInvoices.map((invoice) => {
+            const normalized = normalizeInvoice(invoice);
+
+            return (
+              <button
+                className="customer-invoice-row"
+                key={invoice.id}
+                onClick={() => openCustomerInvoice(invoice.id)}
+                type="button"
+              >
+                <div>
+                  <strong>#{invoice.number}</strong>
+                  <span>
+                    {invoice.date} at {invoice.time}
+                  </span>
+                </div>
+                <div>
+                  <strong>{money(normalized.total)}</strong>
+                  <span>នៅសល់ {money(normalized.balanceDue)}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="empty-state compact">
+          <strong>No invoices yet</strong>
+        </div>
+      )}
     </div>
   );
 }
@@ -2364,24 +2605,30 @@ function CustomerPicker({ customers, selectCustomer }) {
 function OrderTab({
   amountPaid,
   bump,
+  clearSelectedCustomer,
   clearOrder,
   customer,
+  deleteSelectedCustomer,
   editingInvoiceId,
+  filteredCustomerCount,
   filteredCustomers,
   filteredProducts,
   handleExactQty,
   invoices,
+  isSearchingCustomers,
   lines,
   orderAmountPaid,
   orderBalanceDue,
   orderPriceType,
   orderNote,
+  openCustomerInvoice,
   paymentStatus,
   phone,
   qty,
   saveInvoice,
   searchOrder,
   selectCustomer,
+  selectedCustomerSummary,
   setCustomer,
   setOrderNote,
   setOrderPaidStatus,
@@ -2448,8 +2695,14 @@ function OrderTab({
             </label>
           </div>
           <CustomerPicker
+            clearSelectedCustomer={clearSelectedCustomer}
+            deleteSelectedCustomer={deleteSelectedCustomer}
             customers={filteredCustomers}
+            isSearchingCustomers={isSearchingCustomers}
+            openCustomerInvoice={openCustomerInvoice}
             selectCustomer={selectCustomer}
+            selectedCustomerSummary={selectedCustomerSummary}
+            totalCustomerCount={filteredCustomerCount}
           />
           <textarea
             className="textarea order-note"

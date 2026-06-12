@@ -329,12 +329,14 @@ input[type="number"] {
 .customer-picker-head strong {
   min-width: 26px;
   min-height: 26px;
+  padding: 0 8px;
   border-radius: 8px;
   display: grid;
   place-items: center;
   background: #f4e5d5;
   color: #8b3410;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .customer-chip-row {
@@ -386,6 +388,122 @@ input[type="number"] {
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+}
+
+.customer-history {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #dfc4ac;
+  display: grid;
+  gap: 10px;
+}
+
+.customer-history-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.customer-history-head span,
+.customer-history-balance span,
+.customer-history-metrics span,
+.customer-invoice-row span {
+  color: #7a3e25;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-history-head > div:first-child strong {
+  display: block;
+  margin-top: 2px;
+  color: #2c1008;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.customer-history-balance {
+  min-width: 110px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff0ef;
+  border: 1.5px solid #df7f7a;
+  text-align: right;
+}
+
+.customer-history-balance strong {
+  display: block;
+  margin-top: 2px;
+  color: #c62828;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.customer-history-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.customer-history-metrics div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #ead5bf;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.customer-history-metrics strong {
+  display: block;
+  margin-top: 3px;
+  color: #2f7d74;
+  font-size: 15px;
+}
+
+.customer-invoice-list {
+  display: grid;
+  gap: 7px;
+}
+
+.customer-invoice-row {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #ead5bf;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  background: #ffffff;
+  color: #2c1008;
+  text-align: left;
+}
+
+.customer-invoice-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.customer-invoice-row > div:last-child {
+  text-align: right;
+}
+
+.customer-invoice-row strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-invoice-row span {
+  overflow: hidden;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-note,
@@ -1760,6 +1878,16 @@ button:disabled {
 
   .customer-chip {
     width: 100%;
+  }
+
+  .customer-history-head,
+  .customer-invoice-row {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-history-balance,
+  .customer-invoice-row > div:last-child {
+    text-align: left;
   }
 
   .order-products,
