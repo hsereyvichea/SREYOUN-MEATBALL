@@ -36,6 +36,10 @@ const WIFI_SYNC_PORT = 8787;
 const DEFAULT_OWNER_PIN = "1234";
 const CUSTOMER_RECENT_LIMIT = 6;
 const CUSTOMER_SEARCH_LIMIT = 8;
+const PRODUCT_THUMB_SIZE = 360;
+const PRODUCT_THUMB_QUALITY = 0.76;
+const PRODUCT_ZOOM_SIZE = 1200;
+const PRODUCT_ZOOM_QUALITY = 0.88;
 const NativePrinter = registerPlugin("SreyounPrint");
 
 const DEFAULT_PRODUCTS = [
@@ -108,6 +112,13 @@ function normalizeProduct(product) {
 
   return {
     ...product,
+    photo: typeof product.photo === "string" ? product.photo : "",
+    photoZoom:
+      typeof product.photoZoom === "string"
+        ? product.photoZoom
+        : typeof product.photo === "string"
+          ? product.photo
+          : "",
     retailPrice: +retailPrice.toFixed(2),
     wholesalePrice: +wholesalePrice.toFixed(2),
   };
@@ -115,6 +126,55 @@ function normalizeProduct(product) {
 
 function normalizeProducts(products) {
   return products.map(normalizeProduct);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("File read failed."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image load failed."));
+    image.src = src;
+  });
+}
+
+function drawProductImage(image, maxSize, quality) {
+  const longestSide = Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height);
+  const scale = longestSide > maxSize ? maxSize / longestSide : 1;
+  const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function resizeProductPhoto(file) {
+  if (!file || !file.type?.startsWith("image/")) {
+    throw new Error("Choose an image file.");
+  }
+
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImage(source);
+
+  return {
+    thumb: drawProductImage(image, PRODUCT_THUMB_SIZE, PRODUCT_THUMB_QUALITY),
+    zoom: drawProductImage(image, PRODUCT_ZOOM_SIZE, PRODUCT_ZOOM_QUALITY),
+  };
 }
 
 function getProductPrice(product, priceType) {
@@ -847,11 +907,15 @@ export default function App() {
   const [reportPriceType, setReportPriceType] = useState("all");
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState("🧆");
+  const [newPhoto, setNewPhoto] = useState("");
+  const [newPhotoZoom, setNewPhotoZoom] = useState("");
   const [newRetailPrice, setNewRetailPrice] = useState("");
   const [newWholesalePrice, setNewWholesalePrice] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editEmoji, setEditEmoji] = useState("");
+  const [editPhoto, setEditPhoto] = useState("");
+  const [editPhotoZoom, setEditPhotoZoom] = useState("");
   const [editRetailPrice, setEditRetailPrice] = useState("");
   const [editWholesalePrice, setEditWholesalePrice] = useState("");
   const [toast, setToast] = useState(null);
@@ -1692,6 +1756,34 @@ export default function App() {
     showToast(`Invoice marked ${normalizedStatus}.`);
   };
 
+  const chooseNewProductPhoto = async (file) => {
+    if (!file) return;
+
+    try {
+      const resized = await resizeProductPhoto(file);
+
+      setNewPhoto(resized.thumb);
+      setNewPhotoZoom(resized.zoom);
+      showToast("Photo added.");
+    } catch {
+      showToast("Could not use that photo.", "err");
+    }
+  };
+
+  const chooseEditProductPhoto = async (file) => {
+    if (!file) return;
+
+    try {
+      const resized = await resizeProductPhoto(file);
+
+      setEditPhoto(resized.thumb);
+      setEditPhotoZoom(resized.zoom);
+      showToast("Photo updated.");
+    } catch {
+      showToast("Could not use that photo.", "err");
+    }
+  };
+
   const addProduct = () => {
     const retailPrice = Number.parseFloat(newRetailPrice);
     const wholesalePrice = Number.parseFloat(newWholesalePrice);
@@ -1711,6 +1803,8 @@ export default function App() {
       {
         id: genId(),
         emoji: newEmoji.trim() || "🧆",
+        photo: newPhoto,
+        photoZoom: newPhotoZoom,
         name: newName.trim(),
         retailPrice: +retailPrice.toFixed(2),
         wholesalePrice: +wholesalePrice.toFixed(2),
@@ -1718,6 +1812,8 @@ export default function App() {
     ]);
     setNewName("");
     setNewEmoji("🧆");
+    setNewPhoto("");
+    setNewPhotoZoom("");
     setNewRetailPrice("");
     setNewWholesalePrice("");
     showToast("Item added.");
@@ -1738,6 +1834,8 @@ export default function App() {
     setEditId(product.id);
     setEditName(normalized.name);
     setEditEmoji(normalized.emoji);
+    setEditPhoto(normalized.photo || "");
+    setEditPhotoZoom(normalized.photoZoom || normalized.photo || "");
     setEditRetailPrice(String(normalized.retailPrice));
     setEditWholesalePrice(String(normalized.wholesalePrice));
   };
@@ -1762,6 +1860,8 @@ export default function App() {
           ? {
               ...product,
               emoji: editEmoji.trim() || "🧆",
+              photo: editPhoto,
+              photoZoom: editPhotoZoom || editPhoto,
               name: editName.trim(),
               retailPrice: +retailPrice.toFixed(2),
               wholesalePrice: +wholesalePrice.toFixed(2),
@@ -2315,15 +2415,21 @@ export default function App() {
         {tab === "menu" && (
           <MenuTab
             addProduct={addProduct}
+            chooseEditProductPhoto={chooseEditProductPhoto}
+            chooseNewProductPhoto={chooseNewProductPhoto}
             deleteProduct={deleteProduct}
             editEmoji={editEmoji}
             editId={editId}
             editName={editName}
+            editPhoto={editPhoto}
+            editPhotoZoom={editPhotoZoom}
             editRetailPrice={editRetailPrice}
             editWholesalePrice={editWholesalePrice}
             filteredProducts={filteredMenuProducts}
             newEmoji={newEmoji}
             newName={newName}
+            newPhoto={newPhoto}
+            newPhotoZoom={newPhotoZoom}
             newRetailPrice={newRetailPrice}
             newWholesalePrice={newWholesalePrice}
             saveProductEdit={saveProductEdit}
@@ -2331,10 +2437,14 @@ export default function App() {
             setEditEmoji={setEditEmoji}
             setEditId={setEditId}
             setEditName={setEditName}
+            setEditPhoto={setEditPhoto}
+            setEditPhotoZoom={setEditPhotoZoom}
             setEditRetailPrice={setEditRetailPrice}
             setEditWholesalePrice={setEditWholesalePrice}
             setNewEmoji={setNewEmoji}
             setNewName={setNewName}
+            setNewPhoto={setNewPhoto}
+            setNewPhotoZoom={setNewPhotoZoom}
             setNewRetailPrice={setNewRetailPrice}
             setNewWholesalePrice={setNewWholesalePrice}
             setSearchMenu={setSearchMenu}
@@ -2793,9 +2903,12 @@ function ProductOrderCard({ bump, handleExactQty, priceType, product, qty }) {
 
   return (
     <article className="product-card">
-      <div className="product-emoji" aria-hidden="true">
-        {normalized.emoji}
-      </div>
+      <ZoomableProductVisual
+        emoji={normalized.emoji}
+        label={normalized.name}
+        photo={normalized.photo}
+        zoomPhoto={normalized.photoZoom}
+      />
       <div>
         <div className="product-name">{normalized.name}</div>
         <div className="product-price">{money(activePrice)}</div>
@@ -2828,6 +2941,121 @@ function ProductOrderCard({ bump, handleExactQty, priceType, product, qty }) {
         </button>
       </div>
     </article>
+  );
+}
+
+function ProductVisual({ emoji, photo }) {
+  return (
+    <div className={`product-emoji ${photo ? "has-photo" : ""}`} aria-hidden="true">
+      {photo ? <img alt="" src={photo} /> : emoji || "🧆"}
+    </div>
+  );
+}
+
+function ZoomableProductVisual({
+  emoji,
+  label = "Product photo",
+  photo,
+  zoomPhoto,
+}) {
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const largePhoto = zoomPhoto || photo;
+
+  return (
+    <>
+      <button
+        aria-label={`View ${label}`}
+        className={`product-emoji ${photo ? "has-photo" : ""} product-photo-thumb`}
+        onClick={() => setZoomOpen(true)}
+        type="button"
+      >
+        {photo ? <img alt="" src={photo} /> : emoji || "🧆"}
+      </button>
+      {zoomOpen ? (
+        <ProductPhotoZoom
+          emoji={emoji}
+          label={label}
+          onClose={() => setZoomOpen(false)}
+          photo={largePhoto}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ProductPhotoZoom({ emoji, label, onClose, photo }) {
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      aria-label={label}
+      aria-modal="true"
+      className="product-photo-zoom"
+      onClick={onClose}
+      role="dialog"
+    >
+      <div
+        className="product-photo-zoom-panel"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          aria-label="Close photo"
+          className="icon-btn product-photo-close"
+          onClick={onClose}
+          type="button"
+        >
+          <X size={22} />
+        </button>
+        {photo ? (
+          <img alt={label} src={photo} />
+        ) : (
+          <div className="product-photo-zoom-emoji" aria-hidden="true">
+            {emoji || "🧆"}
+          </div>
+        )}
+        <strong>{label}</strong>
+      </div>
+    </div>
+  );
+}
+
+function ProductPhotoPicker({ emoji, onClear, onPick, photo, zoomPhoto }) {
+  return (
+    <div className="product-photo-picker">
+      <ZoomableProductVisual
+        emoji={emoji}
+        label="Product photo preview"
+        photo={photo}
+        zoomPhoto={zoomPhoto}
+      />
+      <label className="secondary-btn photo-upload-btn">
+        <ImageDown size={18} />
+        Photo
+        <input
+          accept="image/*"
+          className="file-input"
+          onChange={(event) => {
+            onPick(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+          type="file"
+        />
+      </label>
+      {photo ? (
+        <button className="ghost-btn compact-btn" onClick={onClear} type="button">
+          <X size={16} />
+          Remove
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -2921,15 +3149,21 @@ function OriginBadge({ invoice }) {
 
 function MenuTab({
   addProduct,
+  chooseEditProductPhoto,
+  chooseNewProductPhoto,
   deleteProduct,
   editEmoji,
   editId,
   editName,
+  editPhoto,
+  editPhotoZoom,
   editRetailPrice,
   editWholesalePrice,
   filteredProducts,
   newEmoji,
   newName,
+  newPhoto,
+  newPhotoZoom,
   newRetailPrice,
   newWholesalePrice,
   saveProductEdit,
@@ -2937,10 +3171,14 @@ function MenuTab({
   setEditEmoji,
   setEditId,
   setEditName,
+  setEditPhoto,
+  setEditPhotoZoom,
   setEditRetailPrice,
   setEditWholesalePrice,
   setNewEmoji,
   setNewName,
+  setNewPhoto,
+  setNewPhotoZoom,
   setNewRetailPrice,
   setNewWholesalePrice,
   setSearchMenu,
@@ -2956,6 +3194,16 @@ function MenuTab({
             onChange={(event) => setNewEmoji(event.target.value)}
             placeholder="Icon"
             value={newEmoji}
+          />
+          <ProductPhotoPicker
+            emoji={newEmoji}
+            onClear={() => {
+              setNewPhoto("");
+              setNewPhotoZoom("");
+            }}
+            onPick={chooseNewProductPhoto}
+            photo={newPhoto}
+            zoomPhoto={newPhotoZoom}
           />
           <input
             className="input"
@@ -3043,6 +3291,16 @@ function MenuTab({
                       value={editWholesalePrice}
                     />
                   </div>
+                  <ProductPhotoPicker
+                    emoji={editEmoji}
+                    onClear={() => {
+                      setEditPhoto("");
+                      setEditPhotoZoom("");
+                    }}
+                    onPick={chooseEditProductPhoto}
+                    photo={editPhoto}
+                    zoomPhoto={editPhotoZoom}
+                  />
                   <div className="product-actions">
                     <button
                       className="secondary-btn"
@@ -3079,9 +3337,12 @@ function MenuProductView({ deleteProduct, product, startEditProduct }) {
   return (
     <>
       <div className="menu-product-head">
-        <div className="product-emoji" aria-hidden="true">
-          {normalized.emoji}
-        </div>
+        <ZoomableProductVisual
+          emoji={normalized.emoji}
+          label={normalized.name}
+          photo={normalized.photo}
+          zoomPhoto={normalized.photoZoom}
+        />
         <div className="product-name">{normalized.name}</div>
       </div>
       <div className="price-pair">
@@ -3140,7 +3401,27 @@ function HistoryTab({
     const nextStatus = selectedStatus === "paid" ? "unpaid" : "paid";
 
     return (
-      <section className="section">
+      <section className="section invoice-detail-section">
+        <div className="invoice-detail-toolbar no-print">
+          <button
+            className="secondary-btn compact-btn"
+            onClick={() => setSelectedInvId(null)}
+            type="button"
+          >
+            <X size={16} />
+            Back
+          </button>
+          <div className="invoice-detail-title">
+            <span>Invoice #{selectedInv.number}</span>
+            <strong>{selectedInv.customer || "Walk-in"}</strong>
+            <em>{selectedInv.date}</em>
+          </div>
+          <div className="invoice-detail-badges">
+            <PaymentStatusBadge invoice={normalizedInvoice} />
+            <PriceTypeBadge invoice={normalizedInvoice} />
+            <OriginBadge invoice={normalizedInvoice} />
+          </div>
+        </div>
         <div className={`invoice-status-panel ${selectedStatus} no-print`}>
           <div>
             <span>Payment Status</span>
@@ -3171,13 +3452,9 @@ function HistoryTab({
             Mark {nextStatus === "paid" ? "Paid" : "Unpaid"}
           </button>
         </div>
-        <div className="button-row no-print history-actions">
-          <button className="secondary-btn" onClick={() => setSelectedInvId(null)} type="button">
-            <X size={18} />
-            Back
-          </button>
+        <div className="invoice-action-grid no-print history-actions">
           <button
-            className="danger-btn"
+            className="danger-btn compact-btn"
             onClick={() => deleteInvoice(selectedInv.id)}
             type="button"
           >
@@ -3185,34 +3462,34 @@ function HistoryTab({
             Delete
           </button>
           <button
-            className="secondary-btn"
+            className="secondary-btn compact-btn"
             onClick={() => startEditInvoice(selectedInv)}
             type="button"
           >
             <Pencil size={18} />
             Edit
           </button>
-          <button className="primary-btn" onClick={shareReceipt} type="button">
+          <button className="primary-btn compact-btn" onClick={shareReceipt} type="button">
             <Share2 size={18} />
             Share
           </button>
           <button
-            className="secondary-btn"
+            className="secondary-btn compact-btn"
             onClick={sendSelectedInvoiceOverWifi}
             type="button"
           >
             <Wifi size={18} />
             WiFi
           </button>
-          <button className="secondary-btn" onClick={saveReceiptPhoto} type="button">
+          <button className="secondary-btn compact-btn" onClick={saveReceiptPhoto} type="button">
             <ImageDown size={18} />
             Photo
           </button>
-          <button className="secondary-btn" onClick={saveReceiptPdf} type="button">
+          <button className="secondary-btn compact-btn" onClick={saveReceiptPdf} type="button">
             <FileDown size={18} />
             PDF
           </button>
-          <button className="primary-btn" onClick={printReceipt} type="button">
+          <button className="primary-btn compact-btn" onClick={printReceipt} type="button">
             <Printer size={18} />
             Print
           </button>
