@@ -30,7 +30,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import { sanitizeCalc } from "./helpers/calc";
+import { evaluateCalcExpression, sanitizeCalc } from "./helpers/calc";
 import {
   customerKey,
   customersFromInvoices,
@@ -1755,9 +1755,9 @@ export default function App() {
   const handleCalcBtn = (value) => {
     const allowedButtons = new Set([
       "C",
-      "⌫",
-      "÷",
-      "×",
+      "\u232b",
+      "\u00f7",
+      "\u00d7",
       "/",
       "*",
       "7",
@@ -1786,7 +1786,7 @@ export default function App() {
       return;
     }
 
-    if (value === "⌫") {
+    if (value === "\u232b") {
       setCalcInput((current) => current.slice(0, -1));
       return;
     }
@@ -1797,7 +1797,7 @@ export default function App() {
       if (!parsed.trim()) return;
 
       try {
-        const result = Function(`"use strict"; return (${parsed})`)();
+        const result = evaluateCalcExpression(parsed);
         if (!Number.isFinite(result)) throw new Error("Invalid result");
         setCalcInput(String(Math.round(result * 10000) / 10000));
       } catch {
@@ -3244,7 +3244,7 @@ function ReportSummaryPanel({ invoices, label, summary, title }) {
         </div>
       ) : (
         <div className="empty-state compact">
-          <div className="empty-icon">ðŸ§¾</div>
+          <div className="empty-icon">{"\ud83e\uddfe"}</div>
           <strong>No invoices</strong>
         </div>
       )}
@@ -3400,9 +3400,9 @@ function Receipt({ invoice, settings }) {
 function CalculatorTab({ calcInput, handleCalcBtn }) {
   const buttons = [
     { label: "C", type: "action" },
-    { label: "⌫", type: "action" },
-    { label: "÷", val: "/", type: "op" },
-    { label: "×", val: "*", type: "op" },
+    { label: "\u232b", type: "action" },
+    { label: "\u00f7", val: "/", type: "op" },
+    { label: "\u00d7", val: "*", type: "op" },
     { label: "7" },
     { label: "8" },
     { label: "9" },

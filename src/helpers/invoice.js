@@ -49,13 +49,16 @@ export function normalizeInvoice(invoice) {
   const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
   const amountPaid = invoiceAmountPaid({ ...invoice, total });
   const balanceDue = +Math.max(total - amountPaid, 0).toFixed(2);
-
-  return {
+  const normalized = {
     ...invoice,
     total: +total.toFixed(2),
     amountPaid,
     balanceDue,
-    paymentStatus: balanceDue <= 0 && total > 0 ? "paid" : "unpaid",
+  };
+
+  return {
+    ...normalized,
+    paymentStatus: invoicePaymentStatus(normalized),
   };
 }
 
