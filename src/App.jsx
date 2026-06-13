@@ -809,7 +809,6 @@ export default function App() {
         normalizeInvoice({
           ...invoice,
           id: invoice.id || genId(),
-          syncOrigin: "received",
           createdOnDeviceName:
             invoice.createdOnDeviceName || sourceDeviceName || "another device",
           receivedFromDeviceName:
