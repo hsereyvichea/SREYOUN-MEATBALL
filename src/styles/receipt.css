@@ -1,0 +1,167 @@
+.receipt {
+  background: var(--color-surface);
+  color: var(--color-blue);
+  border: 1px solid #d5dbea;
+  border-radius: var(--radius-sm);
+  padding: 30px 40px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  font-family: var(--font-receipt);
+}
+
+.invoice-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 15px;
+}
+
+.khmer-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.shop-name {
+  margin: 0 0 5px;
+  color: var(--color-blue);
+  font-size: 24px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.shop-phone {
+  font-size: 13px;
+}
+
+.receipt-number {
+  color: #d81b1b;
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.receipt-number span {
+  text-decoration: underline;
+}
+
+.receipt-date {
+  margin-top: 5px;
+  font-size: 12px;
+  text-align: right;
+}
+
+.invoice-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.customer-info {
+  flex: 1;
+}
+
+.customer-info div + div {
+  margin-top: 6px;
+}
+
+.bank-box {
+  min-width: 200px;
+  border: 1.5px solid var(--color-blue);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.bank-title {
+  border-bottom: 1px solid var(--color-blue);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid var(--color-blue);
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.invoice-table th,
+.invoice-table td {
+  border: 1.5px solid var(--color-blue);
+  padding: 8px;
+  vertical-align: top;
+}
+
+.invoice-table th {
+  background: #f5f8ff;
+  text-align: center;
+  font-weight: bold;
+}
+
+.num-cell {
+  text-align: center;
+  font-weight: bold;
+}
+
+.money-cell {
+  text-align: right;
+}
+
+.strong-cell {
+  font-weight: bold;
+}
+
+.invoice-total-label {
+  text-align: right;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 12px 8px !important;
+}
+
+.invoice-total-value {
+  color: #d81b1b;
+  text-align: right;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 12px 8px !important;
+}
+
+.invoice-note {
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px dashed var(--color-blue);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .invoice-top,
+  .invoice-info-row {
+    flex-direction: column;
+  }
+
+  .receipt-number,
+  .receipt-date {
+    text-align: left;
+  }
+
+  .bank-box {
+    width: 100%;
+  }
+
+  .receipt {
+    overflow-x: auto;
+    padding: 14px;
+  }
+
+  .invoice-table {
+    min-width: 640px;
+  }
+}

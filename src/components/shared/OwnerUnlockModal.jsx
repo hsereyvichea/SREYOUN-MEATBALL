@@ -1,12 +1,15 @@
 import { X } from "lucide-react";
+import { usePosContext } from "../../context/PosContext";
 
-export function OwnerUnlockModal({
-  closeOwnerUnlock,
-  ownerPinInput,
-  ownerUnlockRequest,
-  setOwnerPinInput,
-  submitOwnerUnlock,
-}) {
+export default function OwnerUnlockModal() {
+  const {
+    closeOwnerUnlock,
+    ownerPinInput,
+    ownerUnlockRequest,
+    setOwnerPinInput,
+    submitOwnerUnlock,
+  } = usePosContext();
+
   if (!ownerUnlockRequest) return null;
 
   return (

@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-
 import { ImageDown, X } from "lucide-react";
+
+const DEFAULT_PRODUCT_EMOJI = "\ud83e\uddc6";
 
 export function ProductVisual({ emoji, photo }) {
   return (
     <div className={`product-emoji ${photo ? "has-photo" : ""}`} aria-hidden="true">
-      {photo ? <img alt="" src={photo} /> : emoji || "🧆"}
+      {photo ? <img alt="" src={photo} /> : emoji || DEFAULT_PRODUCT_EMOJI}
     </div>
   );
 }
-
 
 export function ZoomableProductVisual({
   emoji,
@@ -28,7 +28,7 @@ export function ZoomableProductVisual({
         onClick={() => setZoomOpen(true)}
         type="button"
       >
-        {photo ? <img alt="" src={photo} /> : emoji || "🧆"}
+        {photo ? <img alt="" src={photo} /> : emoji || DEFAULT_PRODUCT_EMOJI}
       </button>
       {zoomOpen ? (
         <ProductPhotoZoom
@@ -41,7 +41,6 @@ export function ZoomableProductVisual({
     </>
   );
 }
-
 
 function ProductPhotoZoom({ emoji, label, onClose, photo }) {
   useEffect(() => {
@@ -78,7 +77,7 @@ function ProductPhotoZoom({ emoji, label, onClose, photo }) {
           <img alt={label} src={photo} />
         ) : (
           <div className="product-photo-zoom-emoji" aria-hidden="true">
-            {emoji || "🧆"}
+            {emoji || DEFAULT_PRODUCT_EMOJI}
           </div>
         )}
         <strong>{label}</strong>
@@ -86,7 +85,6 @@ function ProductPhotoZoom({ emoji, label, onClose, photo }) {
     </div>
   );
 }
-
 
 export function ProductPhotoPicker({ emoji, onClear, onPick, photo, zoomPhoto }) {
   return (

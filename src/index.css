@@ -1,0 +1,12 @@
+@import "./styles/variables.css";
+@import "./styles/reset.css";
+@import "./styles/layout.css";
+@import "./styles/components.css";
+@import "./styles/order.css";
+@import "./styles/menu.css";
+@import "./styles/history.css";
+@import "./styles/reports.css";
+@import "./styles/settings.css";
+@import "./styles/calc.css";
+@import "./styles/receipt.css";
+@import "./styles/print.css";

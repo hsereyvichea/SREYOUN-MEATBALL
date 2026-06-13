@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Serif+Khmer:wght@500;600;700&family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  --color-bg-start: #fff8f1;
+  --color-bg-mid: #f6f4ef;
+  --color-bg-end: #efe6dc;
+  --color-surface: #ffffff;
+  --color-warm-bg: #fbf4ec;
+  --color-warm-border: #dfc4ac;
+  --color-warm-light: #f4e5d5;
+  --color-warm-hover: #eddbc8;
+  --color-text-primary: #2c1008;
+  --color-text-muted: #7a3e25;
+  --color-text-dim: #9c6b50;
+  --color-accent: #c4531a;
+  --color-accent-dark: #a94213;
+  --color-accent-light: #8b3410;
+  --color-green: #2f7d74;
+  --color-green-bg: #eff9f6;
+  --color-green-border: #9dcfca;
+  --color-red: #c62828;
+  --color-red-bg: #fff0ef;
+  --color-red-border: #df7f7a;
+  --color-blue: #0a308f;
+  --color-gold: #e5a028;
+  --color-gold-border: #c98200;
+  --font-body: "DM Sans", "Noto Sans Khmer", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Noto Serif Khmer", serif;
+  --font-receipt: Arial, "Noto Sans Khmer", sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 2px 12px rgba(49, 20, 7, 0.07);
+  --shadow-md: 0 4px 24px rgba(44, 16, 8, 0.34);
+  --shadow-lg: 0 18px 48px rgba(44, 16, 8, 0.3);
+  --page-max-width: 1120px;
+}

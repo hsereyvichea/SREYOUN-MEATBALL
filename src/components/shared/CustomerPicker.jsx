@@ -1,25 +1,26 @@
 import { Trash2, User, X } from "lucide-react";
+import { usePosContext } from "../../context/PosContext";
+import { money } from "../../helpers/format";
+import { normalizeInvoice } from "../../helpers/invoice";
 
-import { money } from "../helpers/format";
+export default function CustomerPicker() {
+  const {
+    clearSelectedCustomer,
+    deleteSelectedCustomer,
+    filteredCustomers,
+    filteredCustomerCount,
+    isSearchingCustomers,
+    openCustomerInvoice,
+    selectCustomer,
+    selectedCustomerSummary,
+  } = usePosContext();
 
-import { normalizeInvoice } from "../helpers/invoice";
-
-export function CustomerPicker({
-  clearSelectedCustomer,
-  deleteSelectedCustomer,
-  customers,
-  isSearchingCustomers,
-  openCustomerInvoice,
-  selectCustomer,
-  selectedCustomerSummary,
-  totalCustomerCount,
-}) {
-  if (!customers.length) return null;
+  if (!filteredCustomers.length) return null;
 
   const countLabel =
-    totalCustomerCount > customers.length
-      ? `${customers.length}/${totalCustomerCount}`
-      : String(customers.length);
+    filteredCustomerCount > filteredCustomers.length
+      ? `${filteredCustomers.length}/${filteredCustomerCount}`
+      : String(filteredCustomers.length);
 
   return (
     <div className="customer-picker">
@@ -28,7 +29,7 @@ export function CustomerPicker({
         <strong>{countLabel}</strong>
       </div>
       <div className="customer-chip-row">
-        {customers.map((savedCustomer) => (
+        {filteredCustomers.map((savedCustomer) => (
           <button
             className="customer-chip"
             key={savedCustomer.id}
@@ -52,7 +53,6 @@ export function CustomerPicker({
     </div>
   );
 }
-
 
 function CustomerHistoryPanel({
   clearSelectedCustomer,

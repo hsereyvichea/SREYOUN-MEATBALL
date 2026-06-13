@@ -1,0 +1,22 @@
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  .app-shell,
+  .page {
+    background: white;
+    padding: 0;
+  }
+
+  .receipt {
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+}

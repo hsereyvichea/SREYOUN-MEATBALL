@@ -1,6 +1,5 @@
-import { money } from "../helpers/format";
-
-import { normalizeInvoice } from "../helpers/invoice";
+import { money } from "../../helpers/format";
+import { normalizeInvoice } from "../../helpers/invoice";
 
 export function Receipt({ invoice, settings }) {
   const normalizedInvoice = normalizeInvoice(invoice);
@@ -16,7 +15,7 @@ export function Receipt({ invoice, settings }) {
         </div>
         <div>
           <div className="receipt-number">
-            Nº <span>{invoiceNumber}</span>
+            NÂº <span>{invoiceNumber}</span>
           </div>
           <div className="receipt-date">Date: {invoice.date} {invoice.time}</div>
         </div>
@@ -46,7 +45,7 @@ export function Receipt({ invoice, settings }) {
             <th style={{ width: "5%" }}>
               ល.រ
               <br />
-              Nº
+              NÂº
             </th>
             <th style={{ width: "45%" }}>
               បរិយាយ

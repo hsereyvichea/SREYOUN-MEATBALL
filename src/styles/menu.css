@@ -1,0 +1,242 @@
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.menu-products {
+  margin-top: 14px;
+}
+
+.menu-form {
+  display: grid;
+  grid-template-columns: 82px 1fr 130px 150px auto;
+  gap: 10px;
+}
+
+.product-photo-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.menu-form > .product-photo-picker {
+  grid-column: 2 / -1;
+}
+
+.menu-form > .input:nth-of-type(2) {
+  grid-column: 1 / 3;
+}
+
+.menu-form > .input:nth-of-type(3) {
+  grid-column: 3;
+}
+
+.menu-form > .input:nth-of-type(4) {
+  grid-column: 4;
+}
+
+.menu-form > .primary-btn {
+  grid-column: 5;
+}
+
+.photo-upload-btn {
+  position: relative;
+  overflow: hidden;
+  min-width: 116px;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.file-input {
+  display: none;
+}
+
+.menu-edit-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.menu-edit-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.menu-edit-fields {
+  display: grid;
+  grid-template-columns: 86px 1fr 1fr;
+  gap: 8px;
+}
+
+.menu-product-head {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
+}
+
+.menu-product-info {
+  min-width: 0;
+}
+
+.menu-product-card .price-pair {
+  grid-column: 1 / -1;
+}
+
+.product-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.product-actions > * {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .menu-form {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .menu-form .input {
+    min-width: 0;
+  }
+
+  .menu-form > .product-photo-picker,
+  .menu-form > .input:nth-of-type(n + 2) {
+    grid-column: 1 / -1;
+  }
+
+  .menu-form .primary-btn {
+    grid-column: 1 / -1;
+  }
+
+  .menu-products {
+    align-items: start;
+  }
+
+  .menu-product-card {
+    padding: 9px;
+    gap: 7px;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .menu-product-card .menu-product-head {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .menu-product-card .product-emoji {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
+
+  .menu-product-card .menu-product-info {
+    display: grid;
+    gap: 6px;
+  }
+
+  .menu-product-card .product-name {
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .menu-product-card .price-pair {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .menu-product-card .price-pair > div {
+    min-width: 0;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 6px;
+  }
+
+  .menu-product-card .price-pair span {
+    font-size: 9px;
+  }
+
+  .menu-product-card .price-pair strong {
+    margin-top: 0;
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .menu-product-card .product-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .menu-product-card .product-actions .secondary-btn,
+  .menu-product-card .product-actions .danger-btn,
+  .menu-product-card .product-actions .primary-btn {
+    min-width: 0;
+    min-height: 36px;
+    padding: 5px 4px;
+    font-size: 12px;
+    justify-content: center;
+  }
+
+  .menu-product-card.is-editing {
+    grid-column: 1 / -1;
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .menu-edit-panel {
+    width: 100%;
+    text-align: left;
+    justify-items: stretch;
+  }
+
+  .menu-edit-head {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .menu-product-card.is-editing .menu-edit-fields {
+    grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .menu-product-card.is-editing .product-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-actions {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .product-actions .secondary-btn,
+  .product-actions .danger-btn {
+    min-height: 38px;
+    padding: 6px;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .menu-form > .input:nth-of-type(2) {
+    grid-column: 1 / -1;
+  }
+
+  .menu-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,4 +1,7 @@
-export function CalculatorTab({ calcInput, handleCalcBtn }) {
+import { usePosContext } from "../../context/PosContext";
+
+export default function CalculatorTab() {
+  const { calcInput, handleCalcBtn } = usePosContext();
   const buttons = [
     { label: "C", type: "action" },
     { label: "\u232b", type: "action" },
