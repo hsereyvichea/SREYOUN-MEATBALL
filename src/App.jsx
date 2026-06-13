@@ -30,16 +30,60 @@ import {
   Wifi,
   X,
 } from "lucide-react";
+import { sanitizeCalc } from "./helpers/calc";
+import {
+  customerKey,
+  customersFromInvoices,
+  mergeCustomers,
+  normalizeCustomer,
+  summarizeCustomerInvoices,
+  upsertCustomer,
+} from "./helpers/customer";
+import {
+  backupFileName,
+  dataUrlToBlob,
+  downloadDataUrl,
+  escapeHtml,
+  formatDate,
+  formatTime,
+  money,
+  parseDateInput,
+  parseInvoiceDate,
+  startOfBusinessWeek,
+  endOfBusinessWeek,
+  startOfMonth,
+  toDateInputValue,
+} from "./helpers/format";
+import { genId } from "./helpers/id";
+import {
+  invoiceAmountPaid,
+  invoicePaymentStatus,
+  invoicePriceType,
+  normalizeInvoice,
+  normalizeInvoices,
+  parseMoneyInput,
+} from "./helpers/invoice";
+import { resizeProductPhoto } from "./helpers/photo";
+import {
+  getProductPrice,
+  normalizeProduct,
+  normalizeProducts,
+} from "./helpers/product";
+import { summarizeInvoices } from "./helpers/report";
+import {
+  WIFI_SYNC_PORT,
+  buildWifiSyncPayload,
+  currentDeviceName,
+  invoiceOriginLabel,
+  mergeSyncedInvoices,
+  nextInvoiceCounter,
+  normalizeSyncAddress,
+} from "./helpers/sync";
 
 const STORAGE_KEY = "meatball-pos-v2";
-const WIFI_SYNC_PORT = 8787;
 const DEFAULT_OWNER_PIN = "1234";
 const CUSTOMER_RECENT_LIMIT = 6;
 const CUSTOMER_SEARCH_LIMIT = 8;
-const PRODUCT_THUMB_SIZE = 360;
-const PRODUCT_THUMB_QUALITY = 0.76;
-const PRODUCT_ZOOM_SIZE = 1200;
-const PRODUCT_ZOOM_QUALITY = 0.88;
 const NativePrinter = registerPlugin("SreyounPrint");
 
 const DEFAULT_PRODUCTS = [
@@ -91,451 +135,6 @@ const DEFAULT_SETTINGS = {
   syncMenuPricesOnWifi: false,
 };
 
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-function money(value) {
-  const num = Number(value || 0);
-  const formatted =
-    num % 1 === 0
-      ? num.toString()
-      : num.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-
-  return `៛${formatted}`;
-}
-
-function normalizeProduct(product) {
-  const fallbackPrice = Number(product.price ?? product.retailPrice ?? 0) || 0;
-  const retailPrice = Number(product.retailPrice ?? fallbackPrice) || 0;
-  const wholesalePrice = Number(product.wholesalePrice ?? fallbackPrice) || 0;
-
-  return {
-    ...product,
-    photo: typeof product.photo === "string" ? product.photo : "",
-    photoZoom:
-      typeof product.photoZoom === "string"
-        ? product.photoZoom
-        : typeof product.photo === "string"
-          ? product.photo
-          : "",
-    retailPrice: +retailPrice.toFixed(2),
-    wholesalePrice: +wholesalePrice.toFixed(2),
-  };
-}
-
-function normalizeProducts(products) {
-  return products.map(normalizeProduct);
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("File read failed."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Image load failed."));
-    image.src = src;
-  });
-}
-
-function drawProductImage(image, maxSize, quality) {
-  const longestSide = Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height);
-  const scale = longestSide > maxSize ? maxSize / longestSide : 1;
-  const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
-  const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = width;
-  canvas.height = height;
-  context.drawImage(image, 0, 0, width, height);
-
-  return canvas.toDataURL("image/jpeg", quality);
-}
-
-async function resizeProductPhoto(file) {
-  if (!file || !file.type?.startsWith("image/")) {
-    throw new Error("Choose an image file.");
-  }
-
-  const source = await readFileAsDataUrl(file);
-  const image = await loadImage(source);
-
-  return {
-    thumb: drawProductImage(image, PRODUCT_THUMB_SIZE, PRODUCT_THUMB_QUALITY),
-    zoom: drawProductImage(image, PRODUCT_ZOOM_SIZE, PRODUCT_ZOOM_QUALITY),
-  };
-}
-
-function getProductPrice(product, priceType) {
-  const normalized = normalizeProduct(product);
-  return priceType === "wholesale"
-    ? normalized.wholesalePrice
-    : normalized.retailPrice;
-}
-
-function invoicePriceType(invoice) {
-  return invoice?.priceType === "wholesale" ||
-    invoice?.lines?.[0]?.priceType === "wholesale"
-    ? "wholesale"
-    : "retail";
-}
-
-function parseMoneyInput(value) {
-  const digitsAndDots = String(value ?? "").replace(/[^\d.]/g, "");
-  const [whole = "", ...decimalParts] = digitsAndDots.split(".");
-  const cleaned = decimalParts.length
-    ? `${whole}.${decimalParts.join("")}`
-    : whole;
-  const number = Number.parseFloat(cleaned);
-
-  return Number.isFinite(number) && number > 0 ? +number.toFixed(2) : 0;
-}
-
-function invoiceAmountPaid(invoice) {
-  const parsedTotal = Number(invoice?.total);
-  const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-  const amountPaid = Number(invoice?.amountPaid);
-
-  if (Number.isFinite(amountPaid)) {
-    return +Math.min(Math.max(amountPaid, 0), total).toFixed(2);
-  }
-
-  return invoice?.paymentStatus === "paid" ? +total.toFixed(2) : 0;
-}
-
-function invoiceBalanceDue(invoice) {
-  const parsedTotal = Number(invoice?.total);
-  const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-
-  return +Math.max(total - invoiceAmountPaid(invoice), 0).toFixed(2);
-}
-
-function invoicePaymentStatus(invoice) {
-  const parsedTotal = Number(invoice?.total);
-  const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-
-  if (total <= 0) return invoice?.paymentStatus === "paid" ? "paid" : "unpaid";
-
-  return invoiceBalanceDue(invoice) <= 0 ? "paid" : "unpaid";
-}
-
-function normalizeInvoice(invoice) {
-  const parsedTotal = Number(invoice?.total);
-  const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-  const amountPaid = invoiceAmountPaid({ ...invoice, total });
-  const balanceDue = +Math.max(total - amountPaid, 0).toFixed(2);
-
-  return {
-    ...invoice,
-    total: +total.toFixed(2),
-    amountPaid,
-    balanceDue,
-    paymentStatus: balanceDue <= 0 && total > 0 ? "paid" : "unpaid",
-  };
-}
-
-function normalizeInvoices(invoices) {
-  return invoices.map(normalizeInvoice);
-}
-
-function normalizeCustomer(customer) {
-  const name = String(customer?.name || "").trim();
-  const phone = String(customer?.phone || "").trim();
-  const key = customerKey({ name, phone });
-
-  return {
-    id: customer?.id || key || genId(),
-    name,
-    phone,
-    updatedAt: customer?.updatedAt || new Date().toISOString(),
-  };
-}
-
-function customerKey(customer) {
-  const phone = String(customer?.phone || "").trim();
-  const name = String(customer?.name || "").trim().toLowerCase();
-
-  return phone || name;
-}
-
-function mergeCustomers(...customerLists) {
-  const customersByKey = new Map();
-
-  customerLists.flat().forEach((customer) => {
-    const normalized = normalizeCustomer(customer);
-    if (!normalized.name && !normalized.phone) return;
-
-    const key = customerKey(normalized);
-    const current = customersByKey.get(key);
-
-    if (!current || normalized.updatedAt > current.updatedAt) {
-      customersByKey.set(key, {
-        ...current,
-        ...normalized,
-        name: normalized.name || current?.name || "",
-        phone: normalized.phone || current?.phone || "",
-      });
-    }
-  });
-
-  return Array.from(customersByKey.values()).sort(
-    (first, second) => new Date(second.updatedAt) - new Date(first.updatedAt)
-  );
-}
-
-function upsertCustomer(customers, customer) {
-  return mergeCustomers(
-    [
-      {
-        ...customer,
-        updatedAt: new Date().toISOString(),
-      },
-    ],
-    customers
-  );
-}
-
-function customersFromInvoices(invoices) {
-  return invoices.map((invoice) => ({
-    name: invoice.customer,
-    phone: invoice.phone,
-    updatedAt:
-      invoice.createdAtDevice ||
-      invoice.receivedAt ||
-      parseInvoiceDate(invoice.date)?.toISOString() ||
-      new Date(0).toISOString(),
-  }));
-}
-
-function customerMatchesInvoice(customer, invoice) {
-  const customerPhone = String(customer?.phone || "").trim();
-  const customerName = String(customer?.name || "").trim().toLowerCase();
-  const invoicePhone = String(invoice?.phone || "").trim();
-  const invoiceName = String(invoice?.customer || "").trim().toLowerCase();
-
-  if (customerPhone && invoicePhone) return customerPhone === invoicePhone;
-  if (customerName && invoiceName) return customerName === invoiceName;
-
-  return false;
-}
-
-function summarizeCustomerInvoices(customer, invoices) {
-  const customerInvoices = invoices
-    .filter((invoice) => customerMatchesInvoice(customer, invoice))
-    .map(normalizeInvoice);
-  const summary = summarizeInvoices(customerInvoices);
-
-  return {
-    ...summary,
-    invoices: customerInvoices,
-  };
-}
-
-function formatDate(date) {
-  return date.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
-
-function toDateInputValue(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateInput(value) {
-  const [year, month, day] = String(value || "")
-    .split("-")
-    .map((part) => Number.parseInt(part, 10));
-
-  if (!year || !month || !day) return new Date();
-
-  return new Date(year, month - 1, day);
-}
-
-function parseInvoiceDate(value) {
-  const [day, month, year] = String(value || "")
-    .split("/")
-    .map((part) => Number.parseInt(part, 10));
-
-  if (!year || !month || !day) return null;
-
-  const date = new Date(year, month - 1, day);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-
-  return next;
-}
-
-function startOfBusinessWeek(date) {
-  const start = new Date(date);
-  const day = start.getDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + offset);
-
-  return start;
-}
-
-function endOfBusinessWeek(date) {
-  const end = addDays(startOfBusinessWeek(date), 6);
-  end.setHours(23, 59, 59, 999);
-
-  return end;
-}
-
-function startOfMonth(date) {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  start.setHours(0, 0, 0, 0);
-
-  return start;
-}
-
-function summarizeInvoices(invoices) {
-  const summary = invoices.reduce(
-    (summary, invoice) => {
-      const normalized = normalizeInvoice(invoice);
-      const priceType = invoicePriceType(normalized);
-      const lines = Array.isArray(normalized.lines) ? normalized.lines : [];
-
-      summary.invoiceCount += 1;
-      summary.total += normalized.total;
-      summary.paid += normalized.amountPaid;
-      summary.balance += normalized.balanceDue;
-
-      if (priceType === "wholesale") {
-        summary.wholesale += normalized.total;
-      } else {
-        summary.retail += normalized.total;
-      }
-
-      if (invoicePaymentStatus(normalized) === "paid") {
-        summary.paidInvoices += 1;
-      } else {
-        summary.unpaidInvoices += 1;
-      }
-
-      lines.forEach((line) => {
-        const quantity = Number(line.q ?? line.quantity ?? 0) || 0;
-        const price = Number(line.price) || 0;
-        const lineTotal =
-          Number(line.line) || +(price * quantity).toFixed(2) || 0;
-        const key = line.id || line.name || "unknown-item";
-
-        if (!summary.itemsByKey[key]) {
-          summary.itemsByKey[key] = {
-            name: line.name || "Item",
-            quantity: 0,
-            total: 0,
-          };
-        }
-
-        summary.itemsByKey[key].quantity += quantity;
-        summary.itemsByKey[key].total += lineTotal;
-        summary.itemQuantity += quantity;
-      });
-
-      return summary;
-    },
-    {
-      invoiceCount: 0,
-      total: 0,
-      paid: 0,
-      balance: 0,
-      retail: 0,
-      wholesale: 0,
-      paidInvoices: 0,
-      unpaidInvoices: 0,
-      itemQuantity: 0,
-      averageInvoice: 0,
-      topItems: [],
-      itemsByKey: {},
-    }
-  );
-
-  summary.averageInvoice = summary.invoiceCount
-    ? +(summary.total / summary.invoiceCount).toFixed(2)
-    : 0;
-  summary.topItems = Object.values(summary.itemsByKey)
-    .map((item) => ({
-      ...item,
-      quantity: Number.isInteger(item.quantity)
-        ? item.quantity
-        : +item.quantity.toFixed(2),
-      total: +item.total.toFixed(2),
-    }))
-    .sort(
-      (first, second) =>
-        second.quantity - first.quantity ||
-        second.total - first.total ||
-        first.name.localeCompare(second.name)
-    )
-    .slice(0, 5);
-  delete summary.itemsByKey;
-
-  return summary;
-}
-
-function formatTime(date) {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function backupFileName() {
-  return `sreyoun-backup-${formatDate(new Date()).replace(/\//g, "-")}.json`;
-}
-
-function dataUrlToBlob(dataUrl) {
-  const [header, data] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] || "application/octet-stream";
-  const binary = atob(data);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new Blob([bytes], { type: mime });
-}
-
-function downloadDataUrl(dataUrl, fileName) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = fileName;
-  link.click();
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 function buildInvoiceHtml(invoice, settings) {
   const normalizedInvoice = normalizeInvoice(invoice);
@@ -788,93 +387,6 @@ function buildSunmiReceiptData(invoice, settings) {
   };
 }
 
-function sanitizeCalc(input) {
-  return String(input)
-    .replace(/×/g, "*")
-    .replace(/÷/g, "/")
-    .replace(/[^0-9+\-*/().\s]/g, "");
-}
-
-function currentDeviceName(settings) {
-  return String(settings?.deviceName || "").trim() || "This device";
-}
-
-function invoiceOriginLabel(invoice) {
-  if (invoice?.syncOrigin === "received") {
-    return `Received from ${
-      invoice.receivedFromDeviceName ||
-      invoice.createdOnDeviceName ||
-      "another device"
-    }`;
-  }
-
-  return "Made on this device";
-}
-
-function normalizeSyncAddress(value) {
-  const cleaned = String(value ?? "")
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/.*$/, "");
-
-  if (!cleaned) return "";
-
-  return `http://${cleaned.includes(":") ? cleaned : `${cleaned}:${WIFI_SYNC_PORT}`}`;
-}
-
-function settingsForSync(settings) {
-  const { ownerPin, ...safeSettings } = settings || {};
-
-  return safeSettings;
-}
-
-function buildWifiSyncPayload(invoicesToSend, products, settings) {
-  return {
-    app: "sreyoun-meatball",
-    version: 1,
-    sentAt: new Date().toISOString(),
-    sourceDevice: {
-      name: currentDeviceName(settings),
-    },
-    invoices: invoicesToSend.map((invoice) => normalizeInvoice(invoice)),
-    products: normalizeProducts(products),
-    settings: settingsForSync(settings),
-  };
-}
-
-function mergeSyncedInvoices(currentInvoices, incomingInvoices, sourceDeviceName) {
-  const existingIds = new Set(currentInvoices.map((invoice) => invoice.id));
-  const incoming = incomingInvoices
-    .filter((invoice) => invoice && Array.isArray(invoice.lines))
-    .map((invoice) =>
-      normalizeInvoice({
-        ...invoice,
-        id: invoice.id || genId(),
-        syncOrigin: "received",
-        createdOnDeviceName:
-          invoice.createdOnDeviceName || sourceDeviceName || "another device",
-        receivedFromDeviceName:
-          sourceDeviceName || invoice.createdOnDeviceName || "another device",
-        receivedAt: new Date().toISOString(),
-      })
-    );
-  const incomingById = new Map(incoming.map((invoice) => [invoice.id, invoice]));
-  const updatedExisting = currentInvoices.map((invoice) =>
-    incomingById.get(invoice.id) || invoice
-  );
-  const newInvoices = incoming.filter((invoice) => !existingIds.has(invoice.id));
-
-  return normalizeInvoices([...newInvoices, ...updatedExisting]);
-}
-
-function nextInvoiceCounter(invoices, fallback) {
-  const highestNumber = invoices.reduce(
-    (highest, invoice) => Math.max(highest, Number(invoice.number) || 0),
-    0
-  );
-
-  return Math.max(fallback, highestNumber + 1);
-}
 
 export default function App() {
   const [tab, setTab] = useState("order");
