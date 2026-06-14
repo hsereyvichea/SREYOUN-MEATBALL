@@ -34,7 +34,7 @@ export default function MenuTab() {
               {editId === product.id ? (
                 <div className="menu-edit-panel">
                   <div className="menu-edit-head">
-                    <div className="product-emoji">{editEmoji || "🧆"}</div>
+                    <div className="product-emoji">{editEmoji || "\ud83e\uddc6"}</div>
                     <input className="input" onChange={(e) => setEditName(e.target.value)} placeholder="Item name" value={editName} />
                   </div>
                   <div className="menu-edit-fields">

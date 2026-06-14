@@ -28,7 +28,7 @@ function AppShell() {
       <div className="app-shell">
         <main className="page">
           <div className="empty-state">
-            <div className="empty-icon">🧆</div>
+            <div className="empty-icon">{"\ud83e\uddc6"}</div>
             <strong>Loading...</strong>
           </div>
         </main>

@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS = {
   syncMenuPricesOnWifi: false,
 };
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
+
 const PosContext = createContext(null);
 
 export function usePosContext() {
@@ -63,6 +65,7 @@ export function PosProvider({ children }) {
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [amountPaid, setAmountPaid] = useState("");
   const [qty, setQty] = useState({});
+  const [cartLineEdits, setCartLineEdits] = useState({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -144,12 +147,27 @@ export function PosProvider({ children }) {
     }
   }, [invoices, selectedInvId]);
 
+  // Keep per-invoice line edits only for products still in the active cart.
+  useEffect(() => {
+    setCartLineEdits(prev => {
+      const next = Object.fromEntries(Object.entries(prev).filter(([id]) => (qty[id] || 0) > 0));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [qty]);
+
   // --- Derived state ---
   const lines = useMemo(() =>
     products.filter(p => (qty[p.id] || 0) > 0).map(product => {
-      const price = getProductPrice(product, orderPriceType);
-      return { ...normalizeProduct(product), price, priceType: orderPriceType, q: qty[product.id], line: +(price * qty[product.id]).toFixed(2) };
-    }), [orderPriceType, products, qty]);
+      const normalized = normalizeProduct(product);
+      const edit = cartLineEdits[normalized.id] || {};
+      const basePrice = getProductPrice(normalized, orderPriceType);
+      const rawName = hasOwn(edit, "name") ? edit.name : normalized.name;
+      const rawPrice = hasOwn(edit, "price") ? edit.price : String(basePrice);
+      const price = hasOwn(edit, "price") ? parseMoneyInput(rawPrice) : basePrice;
+      const q = qty[normalized.id] || 0;
+      const name = String(rawName ?? "").trim() || normalized.name;
+      return { ...normalized, name, price, priceType: orderPriceType, q, line: +(price * q).toFixed(2) };
+    }), [cartLineEdits, orderPriceType, products, qty]);
 
   const total = useMemo(() => +lines.reduce((s, l) => s + l.line, 0).toFixed(2), [lines]);
   const orderAmountPaid = useMemo(() => Math.min(parseMoneyInput(amountPaid), total), [amountPaid, total]);
@@ -283,6 +301,14 @@ export function PosProvider({ children }) {
     }
   }, []);
 
+  const updateCartLineName = useCallback((id, value) => {
+    setCartLineEdits(prev => ({ ...prev, [id]: { ...prev[id], name: value } }));
+  }, []);
+
+  const updateCartLinePrice = useCallback((id, value) => {
+    setCartLineEdits(prev => ({ ...prev, [id]: { ...prev[id], price: value } }));
+  }, []);
+
   const updateAmountPaid = useCallback((value) => {
     const parsed = Math.min(parseMoneyInput(value), total);
     setAmountPaid(value);
@@ -338,6 +364,7 @@ export function PosProvider({ children }) {
 
   const clearOrder = useCallback(() => {
     setQty({});
+    setCartLineEdits({});
     setCustomer("");
     setPhone("");
     setSelectedCustomer(null);
@@ -349,11 +376,20 @@ export function PosProvider({ children }) {
 
   const startEditInvoice = useCallback((invoice) => {
     const nextQty = {};
-    invoice.lines.forEach(line => { nextQty[line.id] = line.q; });
+    const nextLineEdits = {};
+    invoice.lines.forEach(line => {
+      const price = Number(line.price);
+      nextQty[line.id] = line.q;
+      nextLineEdits[line.id] = {
+        name: line.name || "",
+        price: String(Number.isFinite(price) ? +price.toFixed(2) : 0),
+      };
+    });
     setOrderPriceType(invoice.priceType || invoice.lines[0]?.priceType || "retail");
     setPaymentStatus(invoicePaymentStatus(invoice));
     setAmountPaid(invoiceAmountPaid(invoice) > 0 ? String(invoiceAmountPaid(invoice)) : "");
     setQty(nextQty);
+    setCartLineEdits(nextLineEdits);
     setCustomer(invoice.customer || "");
     setPhone(invoice.phone || "");
     setOrderNote(invoice.note || "");
@@ -436,8 +472,8 @@ export function PosProvider({ children }) {
     if (!newName.trim() || Number.isNaN(retailPrice) || Number.isNaN(wholesalePrice) || retailPrice < 0 || wholesalePrice < 0) {
       showToast("Enter product name, retail price, and wholesale price.", "err"); return;
     }
-    setProducts(prev => [...prev, { id: genId(), emoji: newEmoji.trim() || "🧆", photo: newPhoto, photoZoom: newPhotoZoom, name: newName.trim(), retailPrice: +retailPrice.toFixed(2), wholesalePrice: +wholesalePrice.toFixed(2) }]);
-    setNewName(""); setNewEmoji("🧆"); setNewPhoto(""); setNewPhotoZoom(""); setNewRetailPrice(""); setNewWholesalePrice("");
+    setProducts(prev => [...prev, { id: genId(), emoji: newEmoji.trim() || "\ud83e\uddc6", photo: newPhoto, photoZoom: newPhotoZoom, name: newName.trim(), retailPrice: +retailPrice.toFixed(2), wholesalePrice: +wholesalePrice.toFixed(2) }]);
+    setNewName(""); setNewEmoji("\ud83e\uddc6"); setNewPhoto(""); setNewPhotoZoom(""); setNewRetailPrice(""); setNewWholesalePrice("");
     showToast("Item added.");
   }, [newName, newEmoji, newPhoto, newPhotoZoom, newRetailPrice, newWholesalePrice, showToast]);
 
@@ -460,7 +496,7 @@ export function PosProvider({ children }) {
     if (!editName.trim() || Number.isNaN(retailPrice) || Number.isNaN(wholesalePrice) || retailPrice < 0 || wholesalePrice < 0) {
       showToast("Enter product name, retail price, and wholesale price.", "err"); return;
     }
-    setProducts(prev => prev.map(p => p.id === editId ? { ...p, emoji: editEmoji.trim() || "🧆", photo: editPhoto, photoZoom: editPhotoZoom || editPhoto, name: editName.trim(), retailPrice: +retailPrice.toFixed(2), wholesalePrice: +wholesalePrice.toFixed(2) } : p));
+    setProducts(prev => prev.map(p => p.id === editId ? { ...p, emoji: editEmoji.trim() || "\ud83e\uddc6", photo: editPhoto, photoZoom: editPhotoZoom || editPhoto, name: editName.trim(), retailPrice: +retailPrice.toFixed(2), wholesalePrice: +wholesalePrice.toFixed(2) } : p));
     setEditId(null);
     showToast("Item updated.");
   }, [editId, editName, editEmoji, editPhoto, editPhotoZoom, editRetailPrice, editWholesalePrice, showToast]);
@@ -736,6 +772,7 @@ export function PosProvider({ children }) {
     paymentStatus, amountPaid,
     editingInvoiceId, setEditingInvoiceId,
     lines, total, orderAmountPaid, orderBalanceDue, orderPaymentStatus,
+    cartLineEdits, updateCartLineName, updateCartLinePrice,
     bump, handleExactQty,
     updateAmountPaid, setOrderPaidStatus,
     saveInvoice, clearOrder,
@@ -804,7 +841,7 @@ export function PosProvider({ children }) {
     tab, loading, products, settings, invoices, invoiceCount, customers, hiddenCustomerKeys,
     invCounter, syncPeerAddress, syncStatus, syncBusy, calcInput, toast,
     ownerUnlocked, ownerPinInput, ownerUnlockRequest,
-    qty, orderPriceType, customer, phone, selectedCustomer, orderNote,
+    qty, cartLineEdits, orderPriceType, customer, phone, selectedCustomer, orderNote,
     paymentStatus, amountPaid, editingInvoiceId,
     lines, total, orderAmountPaid, orderBalanceDue, orderPaymentStatus,
     searchOrder, searchMenu, searchInvoices,
@@ -819,7 +856,7 @@ export function PosProvider({ children }) {
     newName, newEmoji, newPhoto, newPhotoZoom, newRetailPrice, newWholesalePrice,
     editId, editName, editEmoji, editPhoto, editPhotoZoom, editRetailPrice, editWholesalePrice,
     showToast, requestOwnerUnlock, closeOwnerUnlock, submitOwnerUnlock, lockOwnerMode,
-    selectTab, bump, handleExactQty, updateAmountPaid, setOrderPaidStatus,
+    selectTab, bump, handleExactQty, updateCartLineName, updateCartLinePrice, updateAmountPaid, setOrderPaidStatus,
     saveInvoice, clearOrder, startEditInvoice, deleteInvoice,
     updateInvoicePaymentStatus, selectCustomer, clearSelectedCustomer,
     deleteSelectedCustomer, openCustomerInvoice,

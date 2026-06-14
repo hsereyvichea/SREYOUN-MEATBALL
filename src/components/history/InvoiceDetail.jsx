@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X } from "lucide-react";
 import { usePosContext } from "../../context/PosContext";
 import { money } from "../../helpers/format";
@@ -9,6 +10,7 @@ import InvoiceActionBar from "./InvoiceActionBar";
 
 export default function InvoiceDetail() {
   const { selectedInv, setSelectedInvId, updateInvoicePaymentStatus, settings, receiptRef } = usePosContext();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const normalizedInvoice = normalizeInvoice(selectedInv);
   const selectedStatus = invoicePaymentStatus(normalizedInvoice);
@@ -48,9 +50,15 @@ export default function InvoiceDetail() {
         </button>
       </div>
 
-      <InvoiceActionBar />
+      <InvoiceActionBar onTogglePreview={() => setPreviewOpen(prev => !prev)} previewOpen={previewOpen} />
 
-      <div className="receipt-capture" ref={receiptRef}>
+      {previewOpen ? (
+        <div className="receipt-preview-frame no-print">
+          <Receipt invoice={selectedInv} settings={settings} />
+        </div>
+      ) : null}
+
+      <div className="receipt-capture receipt-export-source" ref={receiptRef}>
         <Receipt invoice={selectedInv} settings={settings} />
       </div>
     </section>

@@ -67,6 +67,72 @@
   color: var(--color-accent-light);
 }
 
+.cart-line-editor {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.cart-line-fields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 104px 42px;
+  gap: 8px;
+  align-items: end;
+}
+
+.cart-line-field {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cart-line-field span {
+  color: var(--color-text-dim);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cart-line-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cart-line-price-field .cart-line-input {
+  text-align: right;
+}
+
+.cart-line-qty-field .cart-line-input {
+  text-align: center;
+}
+
+.cart-line-remove {
+  width: 42px;
+  height: 38px;
+  min-width: 0;
+  border-color: #f0c7c7;
+  background: #fff5f3;
+  color: var(--color-red);
+}
+
+.cart-line-remove:hover {
+  background: #ffe8e4;
+  color: var(--color-red);
+}
+
+.cart-line-editor .summary-meta {
+  grid-column: 1 / -1;
+}
+
+.cart-line-editor .summary-amount {
+  justify-self: end;
+}
+
 .total-row {
   display: flex;
   justify-content: space-between;
@@ -451,5 +517,21 @@
 
   .payment-totals {
     grid-template-columns: 1fr;
+  }
+
+  .cart-line-fields {
+    grid-template-columns: minmax(0, 1fr) 56px 76px 38px;
+    gap: 6px;
+  }
+
+  .cart-line-input {
+    height: 36px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .cart-line-remove {
+    width: 38px;
+    height: 36px;
   }
 }

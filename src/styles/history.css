@@ -299,12 +299,54 @@
   max-width: none;
 }
 
+.receipt-preview-frame {
+  width: min(100%, 620px);
+  max-height: min(58dvh, 620px);
+  margin: 0 auto 12px;
+  padding: 10px;
+  border: 1.5px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  justify-content: center;
+  align-items: start;
+  background: var(--color-surface);
+  box-shadow: 0 8px 22px rgba(48, 24, 10, 0.12);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.receipt-preview-frame > .receipt {
+  width: 760px;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  zoom: 0.72;
+}
+
+.receipt-export-source {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 760px;
+  max-width: none;
+  opacity: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.receipt-export-source > .receipt {
+  width: 760px;
+  max-width: none;
+}
+
 .receipt-export-host {
   position: absolute;
   top: 0;
   left: -10000px;
   width: 760px;
   max-width: none;
+  opacity: 1;
   overflow: visible;
   background: var(--color-surface);
   pointer-events: none;
@@ -397,5 +439,13 @@
 
   .invoice-total {
     justify-self: start;
+  }
+
+  .receipt-preview-frame {
+    max-height: 48dvh;
+  }
+
+  .receipt-preview-frame > .receipt {
+    zoom: 0.45;
   }
 }

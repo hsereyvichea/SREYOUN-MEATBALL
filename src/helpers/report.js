@@ -40,11 +40,18 @@ export function summarizeInvoices(invoices) {
             name: line.name || "Item",
             quantity: 0,
             total: 0,
+            retailQuantity: 0,
+            wholesaleQuantity: 0,
           };
         }
 
         summary.itemsByKey[key].quantity += quantity;
         summary.itemsByKey[key].total += lineTotal;
+        if (priceType === "wholesale") {
+          summary.itemsByKey[key].wholesaleQuantity += quantity;
+        } else {
+          summary.itemsByKey[key].retailQuantity += quantity;
+        }
         summary.itemQuantity += quantity;
       });
 
@@ -76,14 +83,19 @@ export function summarizeInvoices(invoices) {
         ? item.quantity
         : +item.quantity.toFixed(2),
       total: +item.total.toFixed(2),
+      priceTypeLabel:
+        item.retailQuantity > 0 && item.wholesaleQuantity > 0
+          ? "Mixed"
+          : item.wholesaleQuantity > 0
+            ? "Wholesale"
+            : "Retail",
     }))
     .sort(
       (first, second) =>
         second.quantity - first.quantity ||
         second.total - first.total ||
         first.name.localeCompare(second.name)
-    )
-    .slice(0, 5);
+    );
   delete summary.itemsByKey;
 
   return summary;

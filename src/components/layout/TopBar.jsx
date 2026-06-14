@@ -1,5 +1,6 @@
 import { usePosContext } from "../../context/PosContext";
 import { money } from "../../helpers/format";
+import CartPanel from "../order/CartPanel";
 
 export default function TopBar() {
   const { settings, todaySales, todayInvoices } = usePosContext();
@@ -8,7 +9,7 @@ export default function TopBar() {
     <header className="topbar no-print">
       <div className="topbar-inner">
         <div className="brand">
-          <div className="brand-mark">🧆</div>
+          <div className="brand-mark">{"\ud83e\uddc6"}</div>
           <div>
             <div className="brand-title">SREYOUN MEATBALL</div>
             <div className="brand-subtitle">{settings.khmerName}</div>
@@ -21,6 +22,7 @@ export default function TopBar() {
             {todayInvoices.length} {todayInvoices.length === 1 ? "order" : "orders"}
           </div>
         </div>
+        <CartPanel placement="topbar" />
       </div>
     </header>
   );

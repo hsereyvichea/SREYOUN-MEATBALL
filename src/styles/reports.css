@@ -258,3 +258,359 @@
     white-space: normal;
   }
 }
+
+.reports-dashboard {
+  display: grid;
+  gap: 16px;
+  color: var(--color-text-primary);
+}
+
+.reports-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reports-header .section-title {
+  margin-bottom: 0;
+  color: #10100b;
+  font-family: var(--font-body);
+  font-size: clamp(28px, 5.4vw, 38px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.reports-header p {
+  margin: 6px 0 0;
+  color: #594238;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.reports-dashboard .reports-price-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border-radius: 18px;
+  background: #e9e2d0;
+}
+
+.reports-dashboard .reports-price-tabs .segmented-btn {
+  min-height: 50px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #594238;
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.reports-dashboard .reports-price-tabs .segmented-btn.active {
+  background: #ffffff;
+  color: #10100b;
+  box-shadow: 0 2px 7px rgba(93, 64, 55, 0.1);
+}
+
+.report-range-chips {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 0 10px;
+  scrollbar-width: none;
+}
+
+.report-range-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.report-range-chip {
+  min-height: 50px;
+  padding: 0 22px;
+  border: 1.5px solid #e0c0b2;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: transparent;
+  color: #10100b;
+  font-size: 17px;
+  font-weight: 900;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.report-range-chip.active {
+  border-color: #c64f00;
+  background: #c64f00;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(158, 61, 0, 0.18);
+}
+
+.report-custom-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-custom-range label {
+  display: grid;
+  gap: 6px;
+}
+
+.report-custom-range span {
+  color: #594238;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.report-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.report-kpi-card {
+  min-height: 124px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(93, 64, 55, 0.08);
+}
+
+.report-kpi-card span {
+  color: #3f2a21;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.report-kpi-card > strong {
+  color: #10100b;
+  font-size: clamp(27px, 6.2vw, 40px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.report-kpi-card > strong.accent {
+  color: #9e3d00;
+}
+
+.report-status-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.report-status-lines strong {
+  font-size: clamp(18px, 4.2vw, 26px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.report-status-lines .paid {
+  color: #2f7d35;
+}
+
+.report-status-lines .unpaid {
+  color: #ba1a1a;
+}
+
+.report-best-card {
+  padding: 26px 28px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(93, 64, 55, 0.1);
+}
+
+.report-best-head {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.report-best-head h3 {
+  margin: 0;
+  color: #10100b;
+  font-size: clamp(28px, 5.5vw, 38px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.report-best-head svg {
+  color: #9e3d00;
+  flex: 0 0 auto;
+}
+
+.report-best-list {
+  display: grid;
+}
+
+.report-best-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #efe8d5;
+}
+
+.report-best-item:first-child {
+  padding-top: 0;
+}
+
+.report-rank {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #e9e2d0;
+  color: #594238;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.report-rank.first {
+  background: #8f6d62;
+  color: #ffffff;
+}
+
+.report-best-name {
+  min-width: 0;
+}
+
+.report-best-name strong {
+  display: block;
+  overflow: hidden;
+  color: #10100b;
+  font-size: clamp(18px, 4.6vw, 29px);
+  font-weight: 900;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-best-name span {
+  display: block;
+  margin-top: 5px;
+  color: #594238;
+  font-size: clamp(13px, 3.4vw, 20px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.report-best-total {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.report-best-total strong {
+  display: block;
+  color: #10100b;
+  font-size: clamp(17px, 4.5vw, 27px);
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.report-best-total span {
+  display: block;
+  margin-top: 6px;
+  color: #9e3d00;
+  font-size: clamp(14px, 3.5vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.report-view-list {
+  width: 100%;
+  min-height: 58px;
+  margin-top: 20px;
+  border: 1.5px solid #e0c0b2;
+  border-radius: 12px;
+  background: transparent;
+  color: #10100b;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.report-empty {
+  min-height: 140px;
+  border: 1.5px dashed #e0c0b2;
+  border-radius: 14px;
+  background: #fff9ec;
+}
+
+.report-empty span {
+  display: block;
+  margin-top: 5px;
+  color: #594238;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .reports-dashboard {
+    gap: 12px;
+  }
+
+  .reports-dashboard .reports-price-tabs .segmented-btn {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .report-range-chip {
+    min-height: 50px;
+    padding: 0 22px;
+    font-size: 18px;
+  }
+
+  .report-kpi-grid {
+    gap: 10px;
+  }
+
+  .report-kpi-card {
+    min-height: 112px;
+    padding: 14px 16px;
+  }
+
+  .report-best-card {
+    padding: 20px 22px;
+  }
+}
+
+@media (max-width: 420px) {
+  .reports-dashboard .reports-price-tabs .segmented-btn {
+    font-size: 15px;
+  }
+
+  .report-kpi-card {
+    min-height: 128px;
+    padding: 15px 16px;
+  }
+
+  .report-kpi-card span {
+    font-size: 11px;
+  }
+
+  .report-best-item {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .report-rank {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+}

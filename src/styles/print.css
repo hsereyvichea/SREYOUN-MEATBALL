@@ -19,4 +19,23 @@
     border-radius: 0;
     padding: 0;
   }
+
+  .receipt-preview-frame {
+    display: none !important;
+  }
+
+  .receipt-export-source {
+    position: static !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .receipt-export-source > .receipt {
+    width: 100% !important;
+    max-width: none !important;
+  }
 }
